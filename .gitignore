@@ -11,3 +11,7 @@
 # Local scratch / editor dirs
 .idea/
 .vscode/
+
+# Python bytecode (test tooling)
+__pycache__/
+*.pyc
