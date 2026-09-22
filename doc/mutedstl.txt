@@ -1,0 +1,333 @@
+*mutedstl.txt*   A muted, self-contained statusline for Vim 9   *mutedstl*
+
+                       LLM POWERED!   LLM POWERED!
+     This plugin was designed and written with the help of a large
+     language model.  本插件由大语言模型协助设计与编写。
+
+                          *mutedstl-llm-powered*
+
+==============================================================================
+CONTENTS ~
+
+  1. Introduction        |mutedstl-intro|
+  2. Requirements        |mutedstl-requirements|
+  3. Installation        |mutedstl-install|
+  4. Enabling            |mutedstl-enable|
+  5. Options             |mutedstl-options|
+  6. Highlight groups    |mutedstl-groups|
+  7. Public API          |mutedstl-api|
+  8. Custom statusbar    |mutedstl-custom|
+  9. Notes               |mutedstl-notes|
+ 10. Contributing        |mutedstl-contributing|
+
+==============================================================================
+1. INTRODUCTION                                     *mutedstl-intro*
+
+    素洁：前后景协调，即几乎适配任何主题；多色状态栏除外。
+
+mutedstl is a self-contained, deliberately *clean* statusline for Vim 9:
+two colours, no colour noise.
+
+It needs NO per-theme colourfile: it reads each colourscheme's own Normal
+foreground/background, so built-in and third-party themes work as-is.  (Unlike
+lightline/airline, which ship a colourfile per theme and otherwise fall back
+to 'default'.)
+
+It has two parts:
+
+  - a colour backend that derives a muted foreground/background pair from the
+    active colourscheme (or from another theme you name), and
+  - a native statusline front end assembled from %#group# fragments.
+
+It does NOT depend on any other plugin; it uses Vim's own |hlget()|,
+|hlset()| and |v:colornames|.
+
+Colour model: Vim keeps the GUI channel (|highlight-guifg|/|highlight-guibg|)
+and the cterm channel (|highlight-ctermfg|/|highlight-ctermbg|) separate and
+never derives one from the other.  A colourscheme author writes BOTH, and the
+author's cterm value is authoritative for 256-colour terminals.  mutedstl
+therefore reads the theme's cterm value first and only converts a missing
+side.
+
+==============================================================================
+2. REQUIREMENTS                                 *mutedstl-requirements*
+
+- Vim 9 or later with the |+vim9script| feature.
+- |v:colornames| (Vim 8.2.4774+) and |hlget()| / |hlset()|.
+
+On older Vim, or without +vim9script, the plugin stays dormant.
+
+==============================================================================
+3. INSTALLATION                                 *mutedstl-install*
+
+Use it as a Vim package: place this directory under
+`pack/{any}/start/mutedstl/` inside a directory in 'packpath', e.g. >
+
+    ~/.vim/pack/mutedstl/start/mutedstl/
+
+or with a plugin manager pointing at the repository.
+
+There is NO dependency to install.
+
+==============================================================================
+4. ENABLING                                     *mutedstl-enable*
+
+The plugin does not install the statusline by itself.  Enable it with: >
+
+    call mutedstl#Setup()
+
+(An `import autoload 'mutedstl.vim'` style also works: `import autoload
+'mutedstl.vim'` then `mutedstl.Setup()`.  The `mutedstl#Fn()` names are used
+here because the 'statusline' expression and autocommands need them anyway.)
+
+Or, to have it enabled automatically when the plugin loads, set this before
+the plugin loads (e.g. in your vimrc): >
+
+    let g:mutedstl_auto_setup = 1
+
+A typical vimrc setup: >
+
+    set laststatus=2
+    set noshowmode
+    let g:mutedstl#invert = 1
+    call mutedstl#Setup()
+
+==============================================================================
+5. OPTIONS                                      *mutedstl-options*
+
+All options live in the `g:mutedstl#` namespace.  Set them before calling
+|mutedstl#Setup()|.
+
+                                                 *g:mutedstl#theme*
+#theme      string (default '')
+            Source theme.  '' means the currently active colourscheme.  Any
+            colourscheme name may be given; its Normal foreground/background
+            are read (with known transparency switches forced off, so a
+            transparent theme still yields an opaque background).  Named
+            themes are cached, keyed by theme and 'background'.
+
+                                                 *g:mutedstl#invert*
+#invert     number (default 0)
+            When non-zero (also any non-empty string), swap foreground and
+            background.  The result is coerced to a Boolean.
+
+                                                 *g:mutedstl#fg*
+#fg         any (default unset)
+            Explicit foreground override.  Accepts a '#RRGGBB' string, a
+            colour name, a 256-colour index (number or digit string), or
+            'NONE' (transparent).
+
+                                                 *g:mutedstl#bg*
+#bg         any (default unset)
+            Explicit background override; same accepted formats as #fg.
+
+                                                 *g:mutedstl#prefix*
+#prefix     string (default 'Mutedstl')
+            Prefix for the generated highlight-group names, so you can avoid
+            collisions or match your own naming.  The groups become
+            {prefix}Emphasis / {prefix}Ordinary / {prefix}Inactive.
+
+                                                 *g:mutedstl#inactive*
+#inactive   string (default 'ordinary')
+            Which chunk non-current windows use: 'ordinary' (default, same
+            pair as active ordinary) or 'emphasis' (the inverted pair).
+
+An override that is present but not a usable value falls back to the theme
+colour instead of raising an error.
+
+==============================================================================
+6. HIGHLIGHT GROUPS                             *mutedstl-groups*
+
+|mutedstl#ApplyDefault()| registers three groups:
+
+  MutedstlEmphasis   active window, emphasis chunk (mode, diagnostics)
+  MutedstlOrdinary   active window, ordinary chunk (file, right)
+  MutedstlInactive   non-current windows; always the ordinary colours
+
+Non-current windows never use the emphasis chunk.
+
+==============================================================================
+7. PUBLIC API                                   *mutedstl-api*
+
+                                                        *mutedstl#Setup()*
+mutedstl#Setup()
+        Apply the highlight groups and install the refresh autocommands
+        (ColorScheme, OptionSet background, re-assertion on buffer/window
+        entry).  It also installs String() as the DEFAULT 'statusline', but
+        ONLY when you have not set 'statusline' yourself: an explicit value is
+        never overwritten (see |mutedstl-custom|).
+
+                                                        *mutedstl#Refresh()*
+mutedstl#Refresh()
+        Recompute and apply the highlight groups (called on ColorScheme /
+        'background' changes).
+
+                                                        *mutedstl#Redraw()*
+mutedstl#Redraw()
+        Redraw the statusline, except while |v:dying| is set.
+
+                                                        *mutedstl#String()*
+mutedstl#String()
+        Return the assembled statusline string.  Used by the 'statusline'
+        option via `%!mutedstl#String()`.
+
+                                                        *mutedstl#Mode()*
+mutedstl#Mode([{mode}])
+        Return a human-readable mode label for |mode()|.  Keyed by the
+        leading character (per :h mode(): compare the leading char, not the
+        whole string); a few multi-char modes are kept exact.  The optional
+        argument overrides |mode()| (mainly for testing; only a string is
+        honoured).
+
+                                                        *mutedstl#Paste()*
+mutedstl#Paste()
+        Return 'PASTE' when 'paste' is set, else ''.
+
+                                                        *mutedstl#IsActive()*
+mutedstl#IsActive()
+        True when the window being rendered is the current window.
+
+                                                         *mutedstl#Colors()*
+mutedstl#Colors()
+        Return the resolved colours.  This is a STABLE interface; the field
+        names and meanings are meant to stay fixed for other plugins.
+
+            ordinary  [fg, bg]  normal chunk
+            emphasis  [fg, bg]  inverted chunk
+            inactive  [fg, bg]  non-current-window chunk (g:mutedstl#inactive)
+            fg        [gui, cterm]  resolved foreground
+            bg        [gui, cterm]  resolved background
+            invert    0 | 1
+            is_none   0 | 1     true if a side is transparent
+
+        A [fg, bg] chunk is [[gui, cterm], [gui, cterm]]; 'gui' is '#RRGGBB'
+        (or 'NONE') and 'cterm' is a 0..255 index string (or 'NONE').
+
+                                                           *mutedstl#Hi()*
+mutedstl#Hi({group}, {chunk})
+        Apply one [fg, bg] chunk to highlight group {group} using |hlset()|.
+
+                                                           *mutedstl#Apply()*
+mutedstl#Apply({groups})
+        Apply {group: 'ordinary'|'emphasis'} using the muted colours.
+
+                                                    *mutedstl#ApplyDefault()*
+mutedstl#ApplyDefault()
+        Apply the default three-group scheme (see |mutedstl-groups|).
+
+                                                     *mutedstl#GroupName()*
+mutedstl#GroupName({kind})
+        Return the highlight group name for a logical kind: 'emphasis',
+        'ordinary' or 'inactive'.  Handy for building a custom 'statusline'.
+
+                                                      *mutedstl#GroupMark()*
+mutedstl#GroupMark({kind})
+        Like |mutedstl#GroupName()| but returns a ready-to-concatenate
+        statusline group marker '%#Group#'.  For 'emphasis'/'ordinary' it
+        picks the inactive variant when the rendered window is not the current
+        window.
+
+                                                        *mutedstl#Chunk()*
+mutedstl#Chunk({content} [, {kind}])
+        Wrap ANY statusline content in one of the plugin's groups.  {content}
+        is passed through verbatim and parsed by Vim's 'statusline' mechanism,
+        so it may be a fixed string, any statusline item (e.g. '%t',
+        '%<%t%m%r'), or a statusline function (e.g. '%{mutedstl#Mode()}').
+        {kind} is a logical name -- 'emphasis', 'ordinary' (default) or
+        'inactive' -- resolved via |mutedstl#GroupName()| (honouring
+        g:mutedstl#prefix), OR any highlight group name (e.g. 'Error',
+        'Warning', 'MyAccent'), which is used verbatim and never switched to
+        inactive.  No spaces are added; the result is '%#{group}#{content}'.
+        Examples: >
+            &statusline = mutedstl#Chunk('%t')
+                  \ .. mutedstl#Chunk('%{mutedstl#Mode()}', 'emphasis')
+                  \ .. mutedstl#Chunk('%= %y | Buf:%n')
+                  \ .. mutedstl#Chunk('%{ale#statusline#Count()}', 'Error')
+<
+        This single function replaces per-item wrappers: since {content} is
+        parsed by Vim, every statusline item (see |statusline|) and every
+        '%{...}' expression works without extra helpers.
+        这一个函数取代了逐项包装：{content} 交由 Vim 解析，故任意状态栏项与
+        '%{...}' 表达式都能直接用，无需额外辅助函数。
+                                                      *mutedstl#FromTheme()*
+mutedstl#FromTheme({theme}, {attr})
+        Read a colour pair from a named theme's Normal group.  {attr} is 'fg'
+        or 'bg'; {theme} may be '' for the current colourscheme.  Returns
+        [gui, cterm].  Useful for reusing mutedstl's theme-aware colour
+        reading elsewhere (statusline, tabline, ...).
+
+                                                          *mutedstl#NrToHex()*
+mutedstl#NrToHex({n})
+        Convert a 256-colour index to an approximate '#RRGGBB'.
+
+                                                       *mutedstl#HexToCterm()*
+mutedstl#HexToCterm({hex})
+        Nearest xterm-256 index for a '#RRGGBB' value (min squared RGB
+        distance).
+
+                                                        *mutedstl#NameToHex()*
+mutedstl#NameToHex({name})
+        Resolve a colour name to '#RRGGBB' via |v:colornames| ('' if unknown).
+
+                                                      *mutedstl#ReloadCache()*
+mutedstl#ReloadCache()
+        Drop the theme colour cache.  Call after installing or editing
+        colourschemes.
+
+                                                        *mutedstl#Reassert()*
+mutedstl#Reassert()
+        Clear any stale window-local 'statusline' so the window inherits the
+        global one again.
+
+==============================================================================
+8. CUSTOM STATUSBAR                              *mutedstl-custom*
+
+mutedstl is a colour package: the default layout comes from String(), but you
+can lay out your own 'statusline' using its highlight groups.  Set 'statusline'
+before calling Setup() (an explicit value is never overwritten):
+
+    &statusline = mutedstl#GroupMark('emphasis')
+          \ .. ' %{mutedstl#Mode()}%{mutedstl#Paste()} '
+          \ .. mutedstl#GroupMark('ordinary') .. ' %<%f%m%r%=%y | Buf:%n | [%l:%c]'
+    call mutedstl#Setup()
+
+The three groups are (see |mutedstl-groups|):
+    %#MutedstlEmphasis#   %#MutedstlOrdinary#   %#MutedstlInactive#
+
+Note: use the mutedstl#Mode() / mutedstl#Paste() names (not the import alias)
+inside the 'statusline' string, since it is evaluated in Vim's own context.
+
+<mutedstl-plug>  Optional mappings you can map yourself (they run in the
+plugin's script context, where the import alias is visible):
+
+    <Plug>(mutedstl-refresh)    re-apply the highlight groups and redraw
+    <Plug>(mutedstl-redraw)     redraw only
+    <Plug>(mutedstl-reload)     drop the theme cache, re-apply and redraw
+
+Example:   nmap <Leader>mr <Plug>(mutedstl-refresh)
+
+==============================================================================
+9. NOTES                                        *mutedstl-notes*
+
+- Per |hlget()|'s design, the plugin never invents a cterm value when the
+  theme already provides one; it only approximates the nearest xterm-256
+  colour (minimal RGB distance) for a missing side.
+- The current theme ('' ) is read directly and never cached; only named
+  themes are cached.
+- The statusline uses lazy %{...} items for |mode()| and 'paste' so they are
+  evaluated in the context of the statusline's own window (both are
+  window-local; this matters with multiple windows).
+
+==============================================================================
+10. CONTRIBUTING                                *mutedstl-contributing*
+
+- Pull requests are welcome. / 欢迎 PR。
+- Bugs will be maintained. / Bug 会维护。
+- Feature requests are considered very carefully, because the plugin is kept
+  minimal on purpose.  A new feature is most likely to be accepted if it has a
+  chance of being merged into Vim itself as a built-in plugin; otherwise it is
+  probably better left to the user.
+  **功能请求会被审慎对待** —— 本插件刻意保持精简。只有当某个功能**有机会被
+  合并为 Vim 内置插件**时才最可能被接受；否则更适合交给用户自行实现。
+
+ vim:tw=78:ts=8:noet:ft=help:norl:
