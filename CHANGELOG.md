@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- test/term_render.py: render the statusline in a real PTY (python3 + pyte)
+  and assert the visible text and that the emphasis/ordinary segments use
+  distinct colours.  Wired into test/run.sh and CI (skipped when pyte is
+  absent).  This closes the biggest verification gap: until now the plugin
+  was only exercised headless, never through a terminal.
+
 ### Fixed
 
 - Mode(): map the Virtual-Replace completion modes (Rvc/Rvx) to V-REPLACE and

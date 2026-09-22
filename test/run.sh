@@ -47,4 +47,14 @@ else
   rm -rf "$tmpdir"
 fi
 
+# Optional: render the statusline in a real PTY and check the colours.  Needs
+# python3 + pyte; skipped (exit 0) when either is missing, so it never blocks
+# a plain test run.
+# 可选：在真实 PTY 中渲染状态栏并检查颜色；缺 python3/pyte 时跳过。
+if command -v python3 >/dev/null 2>&1 &&    python3 -c 'import pyte' >/dev/null 2>&1; then
+  python3 "$here/term_render.py" || status=1
+else
+  echo "term-render: SKIP (python3/pyte not available)"
+fi
+
 exit $status

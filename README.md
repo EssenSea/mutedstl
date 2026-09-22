@@ -112,6 +112,9 @@ make lint     # shellcheck + doc/tags freshness
 make check    # test + lint (what CI runs)
 ```
 
+`test/term_render.py` additionally renders the statusline in a real PTY and
+checks the colours (needs `python3` + `pyte`; skipped otherwise).
+
 CI runs the suites on the minimum supported Vim (9.1) and the latest
 release.  `test/upstream.vim` pins the behaviour of the Vim APIs the
 plugin relies on, so an upstream change fails CI rather than breaking users —

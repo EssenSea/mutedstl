@@ -92,3 +92,11 @@ jobs:
 
       - name: help tags are up to date
         run: make docs-check
+
+      - name: Real-terminal render check
+        run: |
+          # pyte renders the PTY stream to a screen buffer; install it in a
+          # throwaway venv so we do not depend on a writable ~/.local.
+          python3 -m venv /tmp/ptenv
+          /tmp/ptenv/bin/pip install --quiet pyte
+          /tmp/ptenv/bin/python test/term_render.py
