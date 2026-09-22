@@ -306,13 +306,13 @@ const transparent_opts = [
   'tokyonight_transparent_background',
 ]
 
-# Current Normal's four channels via hlget() ('' when absent).
-# 用 hlget() 读取当前 Normal 的四个通道（缺失时为空串）。
-def ReadNormal(): dict<string>
+# A highlight group's four channels via hlget() ('' when absent).
+# 用 hlget() 读取任意高亮组的四个通道（缺失时为空串）。
+def ReadGroup(group: string): dict<string>
   if !HasCapabilities()
     return {}
   endif
-  var g = hlget('Normal', v:true)
+  var g = hlget(group, v:true)
   if empty(g)
     return {}
   endif
@@ -322,6 +322,12 @@ def ReadNormal(): dict<string>
     'ctermfg': get(g[0], 'ctermfg', ''),
     'ctermbg': get(g[0], 'ctermbg', ''),
   }
+enddef
+
+# Normal's four channels ('' when absent).
+# Normal 的四个通道（缺失时为空串）。
+def ReadNormal(): dict<string>
+  return ReadGroup('Normal')
 enddef
 
 # Cache of a named theme's opaque Normal channels, keyed by
@@ -382,14 +388,14 @@ def RestoreColorState(state: dict<any>): void
   endfor
 enddef
 
-def ReadThemeNormal(theme: string): dict<string>
+def ReadThemeGroup(theme: string, group: string): dict<string>
   # Current theme: read directly, no switching, no caching.
   # 当前主题：直接读取，不切换、不缓存。
   if empty(theme)
-    return ReadNormal()
+    return ReadGroup(group)
   endif
 
-  var key = theme .. '|' .. &background
+  var key = theme .. '|' .. &background .. '|' .. group
   if has_key(theme_cache, key)
     return theme_cache[key]
   endif
@@ -408,7 +414,7 @@ def ReadThemeNormal(theme: string): dict<string>
   # result instead and let callers fall back to NONE.
   # 切换失败会残留上一个主题的 Normal；读取它会静默返回（并缓存）错误颜色，
   # 故返回空结果，让调用方回退到 NONE。
-  var normal = switched ? ReadNormal() : {}
+  var normal = switched ? ReadGroup(group) : {}
   if switched
     RestoreColorState(state)
   else
@@ -422,6 +428,12 @@ def ReadThemeNormal(theme: string): dict<string>
     theme_cache[key] = normal
   endif
   return normal
+enddef
+
+# Normal's channels for a named theme ('' = current).
+# 指定主题的 Normal 通道（'' = 当前）。
+def ReadThemeNormal(theme: string): dict<string>
+  return ReadThemeGroup(theme, 'Normal')
 enddef
 
 # Drop the theme colour cache (call after changing/installing colourschemes).
@@ -504,10 +516,18 @@ export def Colors(): dict<any>
   var src = SourcePair(invert)
   var chunks = DeriveChunks(src[0], src[1], invert)
   var kind = InactiveKind()
+  var inactive: list<list<any>>
+  if kind ==# 'emphasis'
+    inactive = chunks[1]
+  elseif kind ==# 'ordinary'
+    inactive = chunks[0]
+  else
+    inactive = CommentChunk(src[0], src[1])
+  endif
   return {
     ordinary: chunks[0],
     emphasis: chunks[1],
-    inactive: kind ==# 'emphasis' ? chunks[1] : chunks[0],
+    inactive: inactive,
     fg: copy(src[0]),
     bg: copy(src[1]),
     invert: invert,
@@ -515,13 +535,31 @@ export def Colors(): dict<any>
   }
 enddef
 
-# Which chunk the inactive (non-current) windows should use.  Default is the
-# ordinary chunk; set g:mutedstl_inactive = 'emphasis' to use the inverted pair
-# instead (e.g. to make inactive windows stand out differently).
-# 非当前窗口使用哪个区块。默认 ordinary；设 g:mutedstl_inactive = 'emphasis'
-# 可改用反色对。
+# The chunk for non-current windows when g:mutedstl_inactive is 'comment':
+# the Comment group's foreground on the Normal background, so inactive windows
+# read like comments (dimmed).  Falls back to the ordinary chunk when the theme
+# defines no Comment foreground.
+# g:mutedstl_inactive 为 'comment' 时非当前窗口的区块：用 Comment 组的前景配
+# Normal 的背景，使非当前窗口像注释一样淡化。主题未定义 Comment 前景时回退到
+# ordinary 区块。
+def CommentChunk(s_fg: list<string>, s_bg: list<string>): list<list<any>>
+  var theme = OptStr('theme', '')
+  var c = ReadThemeGroup(theme, 'Comment')
+  var c_fg = ThemePairFrom(get(c, 'guifg', ''), get(c, 'ctermfg', ''))
+  if c_fg[0] ==# 'NONE' && c_fg[1] ==# 'NONE'
+    return [copy(s_fg), copy(s_bg)]     # no usable Comment fg -> ordinary
+  endif
+  return [c_fg, copy(s_bg)]
+enddef
+
+# Which chunk the inactive (non-current) windows should use.  Default is
+# 'comment' (Comment fg on Normal bg); 'ordinary' uses the normal chunk and
+# 'emphasis' the inverted pair.
+# 非当前窗口使用哪个区块。默认 'comment'（Comment 前景 + Normal 背景）；
+# 'ordinary' 用普通区块，'emphasis' 用反色对。
 def InactiveKind(): string
-  return OptStr('inactive', 'ordinary') ==# 'emphasis' ? 'emphasis' : 'ordinary'
+  var k = OptStr('inactive', 'comment')
+  return (k ==# 'emphasis' || k ==# 'ordinary') ? k : 'comment'
 enddef
 
 # Apply one [fg, bg] chunk to a highlight group.

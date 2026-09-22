@@ -129,9 +129,15 @@ All options live in the `g:mutedstl_` namespace.  Set them before calling
             {prefix}Emphasis / {prefix}Ordinary / {prefix}Inactive.
 
                                                  *g:mutedstl_inactive*
-#inactive   string (default 'ordinary')
-            Which chunk non-current windows use: 'ordinary' (default, same
-            pair as active ordinary) or 'emphasis' (the inverted pair).
+#inactive   string (default 'comment')
+            Which chunk non-current windows use:
+
+                'comment'   DEFAULT.  The Comment group's foreground on the
+                            Normal background, so inactive windows read like
+                            comments (dimmed).  Falls back to the ordinary
+                            chunk when the theme has no Comment foreground.
+                'ordinary'  the same pair as active ordinary
+                'emphasis'  the inverted pair
 
                                                  *g:mutedstl_debug*
 g:mutedstl_debug
@@ -152,7 +158,8 @@ clamped into range (no error).
 
   MutedstlEmphasis   active window, emphasis chunk (mode, diagnostics)
   MutedstlOrdinary   active window, ordinary chunk (file, right)
-  MutedstlInactive   non-current windows; always the ordinary colours
+  MutedstlInactive   non-current windows; Comment fg on Normal bg
+                     (g:mutedstl_inactive)
 
 Non-current windows never use the emphasis chunk.
 
@@ -206,7 +213,8 @@ mutedstl#Colors()
 
             ordinary  [fg, bg]  normal chunk
             emphasis  [fg, bg]  inverted chunk
-            inactive  [fg, bg]  non-current-window chunk (g:mutedstl_inactive)
+            inactive  [fg, bg]  non-current chunk (g:mutedstl_inactive;
+                                default = Comment fg on Normal bg)
             fg        [gui, cterm]  resolved foreground
             bg        [gui, cterm]  resolved background
             invert    Boolean   true if fg/bg were swapped

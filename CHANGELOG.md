@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The inactive-window chunk now defaults to `'comment'`:
+  `g:mutedstl_inactive` is `'comment'` by default, using the colourscheme's
+  Comment foreground on the Normal background so non-current windows read
+  like dimmed comments.  `'ordinary'` and `'emphasis'` remain selectable, and
+  a theme without a Comment foreground falls back to the ordinary chunk.
+  This changes the default appearance of `MutedstlInactive` and the value of
+  `Colors().inactive`.
+
 ### Added
 
 - test/term_render.py: render the statusline in a real PTY (python3 + pyte)

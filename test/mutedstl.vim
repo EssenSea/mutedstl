@@ -292,7 +292,7 @@ Check('Hi NONE fg removes guifg', !empty(hn) && !has_key(hn[0], 'guifg'))
 Check('Hi NONE fg keeps guibg', !empty(hn) && get(hn[0], 'guibg', '') ==# '#14161b')
 silent! highlight clear _T_Ord _T_None
 
-# --- 9. ApplyDefault(): three groups, inactive == ordinary -------------------
+# --- 9. ApplyDefault(): three groups (inactive defaults to comment) ----------
 ms.ApplyDefault()
 var em = hlget('MutedstlEmphasis', v:true)
 var od = hlget('MutedstlOrdinary', v:true)
@@ -300,8 +300,15 @@ var ina = hlget('MutedstlInactive', v:true)
 Check('ApplyDefault: Emphasis exists', !empty(em))
 Check('ApplyDefault: Ordinary exists', !empty(od))
 Check('ApplyDefault: Inactive exists', !empty(ina))
-Eq('ApplyDefault: Inactive == Ordinary (gui)', get(od[0], 'guifg', ''), get(ina[0], 'guifg', ''))
-Eq('ApplyDefault: Inactive == Ordinary (cterm)', get(od[0], 'ctermfg', ''), get(ina[0], 'ctermfg', ''))
+# Inactive defaults to the Comment chunk (Comment fg on Normal bg).
+var cm = hlget('Comment', v:true)
+var comment_fg = !empty(cm) ? get(cm[0], 'guifg', '') : ''
+if empty(comment_fg) || comment_fg ==# 'NONE'
+  Skip('ApplyDefault: Inactive fg == Comment fg [no Comment fg]')
+else
+  Eq('ApplyDefault: Inactive fg == Comment fg', comment_fg, get(ina[0], 'guifg', ''))
+endif
+Eq('ApplyDefault: Inactive bg == Normal/Ordinary bg', get(od[0], 'guibg', ''), get(ina[0], 'guibg', ''))
 Check('ApplyDefault: Emphasis differs from Ordinary', get(em[0], 'guifg', '') !=# get(od[0], 'guifg', ''))
 
 # --- 10. theme option + cache ------------------------------------------------
@@ -389,9 +396,41 @@ Check('Colors has inactive chunk', has_key(ms.Colors(), 'inactive'))
 g:mutedstl_inactive = 'emphasis'
 var ci = ms.Colors()
 Eq('inactive=emphasis uses emphasis chunk', ci.emphasis, ci.inactive)
+g:mutedstl_inactive = 'ordinary'
+var co = ms.Colors()
+Eq('inactive=ordinary uses ordinary chunk', co.ordinary, co.inactive)
 ClearOpts()
 var cd = ms.Colors()
-Eq('inactive default uses ordinary chunk', cd.ordinary, cd.inactive)
+# Default is 'comment': fg from Comment, bg from Normal.  It must not be the
+# plain ordinary chunk unless the theme has no Comment foreground.
+var cdef = hlget('Comment', v:true)
+var cdef_fg = !empty(cdef) ? get(cdef[0], 'guifg', '') : ''
+if empty(cdef_fg) || cdef_fg ==# 'NONE'
+  Skip('inactive default falls back to ordinary [no Comment fg]')
+else
+  Eq('inactive default fg == Comment fg', cdef_fg, cd.inactive[0][0])
+  Eq('inactive default bg == Normal bg', cd.bg[0], cd.inactive[1][0])
+endif
+
+# --- 12c. inactive default uses the Comment fg on the Normal bg --------------
+# inactive 默认使用 Comment 前景 + Normal 背景。
+ClearOpts()
+var s12c_c = ms.Colors()
+var s12c_cm = hlget('Comment', v:true)
+var s12c_fg = !empty(s12c_cm) ? get(s12c_cm[0], 'guifg', '') : ''
+if empty(s12c_fg) || s12c_fg ==# 'NONE'
+  Skip('inactive default: Comment fg used [no Comment fg in this theme]')
+else
+  Eq('inactive default: fg is Comment fg', s12c_fg, s12c_c.inactive[0][0])
+  Eq('inactive default: bg is Normal bg', s12c_c.bg[0], s12c_c.inactive[1][0])
+  Check('inactive default: differs from ordinary', s12c_c.inactive[0][0] !=# s12c_c.ordinary[0][0])
+endif
+# explicit overrides still win
+g:mutedstl_inactive = 'ordinary'
+Eq('inactive=ordinary overrides comment', ms.Colors().ordinary, ms.Colors().inactive)
+g:mutedstl_inactive = 'emphasis'
+Eq('inactive=emphasis overrides comment', ms.Colors().emphasis, ms.Colors().inactive)
+ClearOpts()
 
 # --- 13. Chunk(): content wrapped in a group, no spaces ----------------------
 Eq('Chunk %t default', '%#MutedstlOrdinary#%t', ms.Chunk('%t'))

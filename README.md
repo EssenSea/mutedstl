@@ -49,7 +49,8 @@ To install automatically when the plugin loads, set `g:mutedstl_auto_setup = 1`
 *before* it loads.
 
 `Setup()` applies three highlight groups — `Emphasis` (active, mode),
-`Ordinary` (active), `Inactive` (non-current windows) — and installs
+`Ordinary` (active), `Inactive` (non-current windows, Comment fg on
+Normal bg) — and installs
 `String()` as the default `'statusline'` **only if** you have not set one.
 
 ## Custom statusline
@@ -82,7 +83,7 @@ All under `g:mutedstl_`; see `:help mutedstl-options`.
 | `g:mutedstl_fg`       | —    | Foreground override. |
 | `g:mutedstl_bg`       | —    | Background override. |
 | `g:mutedstl_prefix`   | `'Mutedstl'` | Highlight-group prefix. |
-| `g:mutedstl_inactive` | `'ordinary'` | Chunk for non-current windows. |
+| `g:mutedstl_inactive` | `'comment'` | Chunk for non-current windows (`comment`/`ordinary`/`emphasis`). |
 | `g:mutedstl_debug`    | `0`  | Diagnostics via `:echomsg`. |
 
 Override values: `'#RRGGBB'`, a colour name, a 256-colour index, or `'NONE'`.
