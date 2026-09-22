@@ -662,7 +662,10 @@ enddef
 const mode_exact: dict<string> = {
   'nt': 'TERM-N',
   'Rv': 'V-REPLACE',
+  'Rvc': 'V-REPLACE',
+  'Rvx': 'V-REPLACE',
   'cv': 'EX',
+  'cvr': 'EX',
 }
 const mode_first: dict<string> = {
   'n': 'NORMAL',

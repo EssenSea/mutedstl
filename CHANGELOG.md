@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Mode(): map the Virtual-Replace completion modes (Rvc/Rvx) to V-REPLACE and
+  the Ex overstrike mode (cvr) to EX, which the leading-character fallback
+  mislabelled.
+
 ### Changed
 
 - Reshaped the public options to upstream convention: `g:mutedstl#*` became

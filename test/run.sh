@@ -20,7 +20,13 @@ status=0
 
 run_suite() {
   local name="$1" report="$2"
-  MUTEDSTL_TEST_OUT="$report" "$vim_bin" -N -u NONE -i NONE -es -S "$here/$name.vim" </dev/null >/dev/null 2>&1
+  # NOTE: 'vim' reads $VIM as the runtime root; when we use $VIM to pick the
+  # *binary*, unset it for the child so a stale value cannot point Vim at the
+  # wrong runtime.  (Vim's own --version/$VIMRUNTIME then resolves normally.)
+  # 注意：Vim 把 $VIM 当作 runtime 根目录；当我们用 $VIM 选“二进制”时，为子进
+  # 程取消它，避免旧值把 Vim 指向错误的 runtime。
+  MUTEDSTL_TEST_OUT="$report" env -u VIM "$vim_bin" \
+    -N -u NONE -i NONE -es -S "$here/$name.vim" </dev/null >/dev/null 2>&1
   local rc=$?
   [ -f "$report" ] && cat "$report"
   if [ "$rc" -ne 0 ]; then

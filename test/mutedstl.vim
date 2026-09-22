@@ -245,12 +245,37 @@ Eq('Mode !', 'SHELL', ms.Mode('!'))
 Eq('Mode t', 'TERMINAL', ms.Mode('t'))
 Eq('Mode exact nt', 'TERM-N', ms.Mode('nt'))
 Eq('Mode exact Rv', 'V-REPLACE', ms.Mode('Rv'))
+Eq('Mode exact Rvc', 'V-REPLACE', ms.Mode('Rvc'))
 Eq('Mode exact cv', 'EX', ms.Mode('cv'))
+Eq('Mode exact cvr', 'EX', ms.Mode('cvr'))
 Eq('Mode unknown passthrough', 'zz', ms.Mode('zz'))
 Eq('Mode empty', '', ms.Mode(''))
 NoThrow('Mode(123) does not throw', () => ms.Mode(123))
 NoThrow('Mode([1]) does not throw', () => ms.Mode([1]))
 Check('Mode(non-string) falls back to mode()', len(ms.Mode(123)) > 0)
+
+# Full matrix from :help mode() — every documented mode must map (or pass
+# through) without throwing, and the leading-character rule must hold for the
+# multi-char modes the plugin does not special-case.
+# 来自 :help mode() 的完整矩阵。
+var mode_cases = ['n', 'no', 'nov', 'noV', 'no' .. "\<C-v>", 'niI', 'niR', 'niV',
+  'nt', 'v', 'vs', 'V', 'Vs', "\<C-v>", "\<C-v>s", 's', 'S', "\<C-s>",
+  'i', 'ic', 'ix', 'R', 'Rc', 'Rx', 'Rv', 'Rvc', 'Rvx',
+  'c', 'ct', 'cr', 'cv', 'cvr', 'ce', 'r', 'rm', 'r?', '!', 't']
+for mc in mode_cases
+  var ok = true
+  var label = ''
+  try
+    label = ms.Mode(mc)
+  catch
+    ok = false
+  endtry
+  Check($'Mode({{mc}}) maps without throwing', ok && !empty(label))
+endfor
+# Regression: the multi-char modes that would otherwise lose meaning.
+Eq('Mode matrix nt', 'TERM-N', ms.Mode('nt'))
+Eq('Mode matrix Rvc', 'V-REPLACE', ms.Mode('Rvc'))
+Eq('Mode matrix cvr', 'EX', ms.Mode('cvr'))
 
 # --- 7. Paste() --------------------------------------------------------------
 NoThrow('Paste() does not throw', () => ms.Paste())
@@ -432,6 +457,63 @@ set statusline=
 # --- 15. String(): no duplicated consecutive group marker --------------------
 var stl_str = ms.String()
 Check('String: single Ordinary marker', len(split(stl_str, '%#MutedstlOrdinary#')) == 2)
+
+# --- 15b. String(): the %{...} items actually evaluate, groups exist ---------
+# 验证 %{...} 真实可求值、组真实存在（而非只测字符串拼接）。
+var s15_exprs: list<string> = []
+var s15_scan = 0
+while true
+  var s15_oi = match(stl_str, '%{', s15_scan)
+  if s15_oi < 0 | break | endif
+  var s15_ci = match(stl_str, '}', s15_oi)
+  s15_exprs->add(strpart(stl_str, s15_oi + 2, s15_ci - s15_oi - 2))
+  s15_scan = s15_ci + 1
+endwhile
+Check('String: has %{...} items', !empty(s15_exprs))
+for s15_e in s15_exprs
+  var s15_ok = true
+  try
+    eval(s15_e)
+  catch
+    s15_ok = false
+  endtry
+  Check($'String: %{{{s15_e}}} evaluates', s15_ok)
+endfor
+# every %#group# used must resolve to a defined highlight group
+var s15_gs: list<string> = split(stl_str, '%#')
+for s15_i in range(1, len(s15_gs) - 1)
+  var s15_gn = matchstr(s15_gs[s15_i], '^\zs[A-Za-z][A-Za-z0-9]*\ze#')
+  if empty(s15_gn) | continue | endif
+  Check($'String: group {{{s15_gn}}} is defined', !empty(hlget(s15_gn, v:true)))
+endfor
+
+# --- 15c. a colour scheme switch is reflected after Refresh() ----------------
+# 配色切换后 Refresh() 应反映到高亮组（在有色主题可用时）。
+if baseline_ok
+  var s15_before = get(hlget('MutedstlEmphasis', v:true)[0], 'guifg', '')
+  ms.ReloadCache()
+  var s15_other = ''
+  for s15_t in ['pablo', 'ron', 'zellner', 'evening', 'slate']
+    var s15_fg = ms.FromTheme(s15_t, 'fg')
+    if !empty(s15_fg) && s15_fg[0] !=# 'NONE'
+      s15_other = s15_t
+      break
+    endif
+  endfor
+  if empty(s15_other)
+    Skip('Refresh: scheme switch changes colours [no alternate theme]')
+  else
+    g:mutedstl_theme = ''
+    silent! execute 'colorscheme ' .. s15_other
+    ms.Refresh()
+    var s15_after = get(hlget('MutedstlEmphasis', v:true)[0], 'guifg', '')
+    Check('Refresh: scheme switch changes colours', s15_before !=# s15_after)
+    silent! colorscheme blue   # restore baseline
+    ms.ReloadCache()
+  endif
+else
+  Skip('Refresh: scheme switch changes colours [no baseline colours]')
+endif
 
 # =============================================================================
 # 16. Backward-compatibility contract (see :help mutedstl-stable-api)
