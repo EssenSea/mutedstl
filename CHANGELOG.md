@@ -7,16 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- Backward-compatibility policy and enforcement (`:help mutedstl-compat`):
-  explicit STABLE API and option sets, a documented deprecation process, and
-  a support matrix.
-- `Deprecated()` helper for warning about deprecated items under
-  `g:mutedstl_debug`.
-- Contract tests (section 16 of `test/mutedstl.vim`) that freeze the public
-  return types and the `Colors()` structure, so any breaking change fails CI.
-
 ## [1.0.0] - 2026-09-23
 
 First stable release.  A muted, self-contained statusline for Vim 9 that

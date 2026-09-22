@@ -434,50 +434,6 @@ var stl_str = ms.String()
 Check('String: single Ordinary marker', len(split(stl_str, '%#MutedstlOrdinary#')) == 2)
 
 # =============================================================================
-# 16. Backward-compatibility contract (see :help mutedstl-stable-api)
-# 向后兼容契约（见 :help mutedstl-stable-api）。
-# These assertions freeze the public surface.  A change that trips one of them
-# is a breaking change and must be accompanied by a major version bump and a
-# deprecation step (see :help mutedstl-deprecation).
-# 这些断言冻结公共接口。若某项失败即为破坏性变更，必须伴随主版本号提升与
-# 弃用流程（见 :help mutedstl-deprecation）。
-# =============================================================================
-var cc = ms.Colors()
-Eq('compat: Colors() keys', ['bg', 'emphasis', 'fg', 'inactive', 'invert', 'is_none', 'ordinary'], sort(keys(cc)))
-Check('compat: Colors().ordinary is [fg, bg]', len(cc.ordinary) == 2 && len(cc.ordinary[0]) == 2 && len(cc.ordinary[1]) == 2)
-Check('compat: Colors().emphasis is [fg, bg]', len(cc.emphasis) == 2 && len(cc.emphasis[0]) == 2 && len(cc.emphasis[1]) == 2)
-Check('compat: Colors().inactive is [fg, bg]', len(cc.inactive) == 2 && len(cc.inactive[0]) == 2 && len(cc.inactive[1]) == 2)
-Check('compat: Colors().fg is [gui, cterm]', len(cc.fg) == 2)
-Check('compat: Colors().bg is [gui, cterm]', len(cc.bg) == 2)
-Check('compat: Colors().invert is Boolean', type(cc.invert) == v:t_bool)
-Check('compat: Colors().is_none is Boolean', type(cc.is_none) == v:t_bool)
-
-# Return-type contract for the other stable functions.
-Check('compat: NrToHex -> String', type(ms.NrToHex(0)) == v:t_string)
-Check('compat: HexToCterm -> Number', type(ms.HexToCterm('#000000')) == v:t_number)
-Check('compat: NameToHex -> String', type(ms.NameToHex('Red')) == v:t_string)
-Check('compat: FromTheme -> List', type(ms.FromTheme('', 'fg')) == v:t_list)
-Check('compat: Mode -> String', type(ms.Mode('n')) == v:t_string)
-Check('compat: Paste -> String', type(ms.Paste()) == v:t_string)
-Check('compat: IsActive -> Boolean', type(ms.IsActive()) == v:t_bool)
-Check('compat: GroupName -> String', type(ms.GroupName('ordinary')) == v:t_string)
-Check('compat: GroupMark -> String', type(ms.GroupMark('ordinary')) == v:t_string)
-Check('compat: Chunk -> String', type(ms.Chunk('%t')) == v:t_string)
-Check('compat: String -> String', type(ms.String()) == v:t_string)
-
-# Option names are part of the contract: setting the documented option must
-# actually take effect (and the documented default must hold when unset).
-ClearOpts()
-g:mutedstl#prefix = 'Compat'
-Eq('compat: g:mutedstl#prefix takes effect', 'CompatEmphasis', ms.GroupName('emphasis'))
-ClearOpts()
-Eq('compat: g:mutedstl#prefix default', 'MutedstlEmphasis', ms.GroupName('emphasis'))
-Eq('compat: g:mutedstl#inactive default', '%#MutedstlInactive#', ms.GroupMark('inactive'))
-g:mutedstl#inactive = 'emphasis'
-Eq('compat: g:mutedstl#inactive takes effect', 'emphasis', ms.Colors().inactive == ms.Colors().emphasis ? 'emphasis' : 'other')
-ClearOpts()
-
-# =============================================================================
 # Summary / 汇总
 # =============================================================================
 ClearOpts()

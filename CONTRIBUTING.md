@@ -36,22 +36,6 @@ has a chance of being merged into Vim itself as a built-in plugin.
   fixes.
 - Keep one logical change per commit where practical.
 
-## Compatibility
-
-The public API and options are a **contract** (see `:help mutedstl-compat`).
-Breaking one of them requires:
-
-1. Bumping the **major** version.
-2. Following the **deprecation policy** (`:help mutedstl-deprecation`): mark
-   the item deprecated in the docs and source, keep the old behaviour, and
-   call `Deprecated(what, replacement)` on the old path so it warns under
-   `g:mutedstl_debug`.
-3. Removing it only in a later major version.
-
-CI freezes the contract: `test/mutedstl.vim` section 16 asserts the public
-return types and the `Colors()` structure, so an accidental break fails the
-build.
-
 ## Documentation
 
 - Update `doc/mutedstl.txt` for user-visible changes and regenerate tags:

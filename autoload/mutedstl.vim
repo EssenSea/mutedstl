@@ -39,15 +39,6 @@ def Warn(msg: string): void
   endif
 enddef
 
-# Announce use of a deprecated stable item.  Called from the deprecated code
-# path so users see the notice under g:mutedstl_debug while the old behaviour
-# is still honoured.  See :help mutedstl-deprecation for the full policy.
-# 宣布使用了已弃用的稳定项。在弃用代码路径中调用，使 g:mutedstl_debug 下用户
-# 能看到提示，同时仍然保留旧行为。完整政策见 :help mutedstl-deprecation。
-def Deprecated(what: string, replacement: string): void
-  Warn($'deprecated: {what} is deprecated, use {replacement} instead')
-enddef
-
 # Read an option by name (g:mutedstl#<name>), or {default} if unset.
 # 按名读取选项（g:mutedstl#<name>），未设时返回 {default}。
 def Opt(name: string, default: any): any

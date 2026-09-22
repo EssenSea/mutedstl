@@ -1,4 +1,3 @@
-Note:	mutedstl.txt	/*Note:*
 clean	mutedstl.txt	/*clean*
 g:mutedstl#bg	mutedstl.txt	/*g:mutedstl#bg*
 g:mutedstl#fg	mutedstl.txt	/*g:mutedstl#fg*
@@ -29,10 +28,8 @@ mutedstl#ReloadCache()	mutedstl.txt	/*mutedstl#ReloadCache()*
 mutedstl#Setup()	mutedstl.txt	/*mutedstl#Setup()*
 mutedstl#String()	mutedstl.txt	/*mutedstl#String()*
 mutedstl-api	mutedstl.txt	/*mutedstl-api*
-mutedstl-compat	mutedstl.txt	/*mutedstl-compat*
 mutedstl-contributing	mutedstl.txt	/*mutedstl-contributing*
 mutedstl-custom	mutedstl.txt	/*mutedstl-custom*
-mutedstl-deprecation	mutedstl.txt	/*mutedstl-deprecation*
 mutedstl-enable	mutedstl.txt	/*mutedstl-enable*
 mutedstl-groups	mutedstl.txt	/*mutedstl-groups*
 mutedstl-install	mutedstl.txt	/*mutedstl-install*
@@ -40,8 +37,5 @@ mutedstl-intro	mutedstl.txt	/*mutedstl-intro*
 mutedstl-llm-powered	mutedstl.txt	/*mutedstl-llm-powered*
 mutedstl-notes	mutedstl.txt	/*mutedstl-notes*
 mutedstl-options	mutedstl.txt	/*mutedstl-options*
-mutedstl-options-stable	mutedstl.txt	/*mutedstl-options-stable*
 mutedstl-requirements	mutedstl.txt	/*mutedstl-requirements*
-mutedstl-stable-api	mutedstl.txt	/*mutedstl-stable-api*
-mutedstl-support	mutedstl.txt	/*mutedstl-support*
 mutedstl.txt	mutedstl.txt	/*mutedstl.txt*
