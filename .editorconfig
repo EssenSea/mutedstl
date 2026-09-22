@@ -1,0 +1,23 @@
+# EditorConfig for mutedstl — mirrors the settings in the modelines so that
+# editors without Vim's modeline support still follow the project style.
+# mutedstl 的 EditorConfig —— 与文件 modeline 保持一致，使不支持 Vim modeline
+# 的编辑器也遵循本项目风格。
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+charset = utf-8
+
+[*.vim]
+indent_style = space
+indent_size = 2
+max_line_length = 78
+
+[*.txt]
+indent_style = space
+indent_size = 8
+
+[*.md]
+trim_trailing_whitespace = false

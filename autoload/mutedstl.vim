@@ -2,8 +2,8 @@ vim9script
 # =============================================================================
 # autoload/mutedstl.vim
 #
-# Maintainer:  <your name> <you@example.com>
-# Last Change: 2026-09-22
+# Maintainer:  EssenMoon <yueqrgg@gmail.com>
+# Last Change: 2026-09-23
 #
 #   LLM POWERED!   This plugin was designed and written with the help of a
 #                  large language model.   LLM POWERED!
@@ -84,38 +84,39 @@ enddef
 # （如 ctermfg=188）。作者的 cterm 值在 256 终端下才是权威，故流程为：先读主题
 # 的 cterm；仅在某侧缺失时才换算。
 
-# Convert a 256-colour index to an approximate '#RRGGBB'.
-# 将 256 色号转为近似的 '#RRGGBB'。
+# Convert a 256-colour index to an approximate '#RRGGBB'.  Out-of-range
+# values are clamped to 0..255 so callers always get a valid colour.
+# 将 256 色号转为近似的 '#RRGGBB'。越界值被钳制到 0..255，保证调用方总能
+# 得到合法颜色。
 export def NrToHex(n: number): string
-  if n < 0
-    return '#000000'
-  elseif n < 16
+  var i = Clamp256(n)          # :def cannot assign to its arguments
+  if i < 16
     const basic = [
       '#000000', '#800000', '#008000', '#808000',
       '#000080', '#800080', '#008080', '#c0c0c0',
       '#808080', '#ff0000', '#00ff00', '#ffff00',
       '#0000ff', '#ff00ff', '#00ffff', '#ffffff',
     ]
-    return basic[n]
-  elseif n < 232
-    var m = n - 16
+    return basic[i]
+  elseif i < 232
+    var m = i - 16
     const levels = [0x00, 0x5f, 0x87, 0xaf, 0xd7, 0xff]  # xterm cube levels
     var r = levels[m / 36]
     var g = levels[(m % 36) / 6]
     var b = levels[m % 6]
     return printf('#%02x%02x%02x', r, g, b)
   else
-    var k = (n - 232) * 10 + 8
+    var k = (i - 232) * 10 + 8
     return printf('#%02x%02x%02x', k, k, k)
   endif
 enddef
 
 # Standard xterm 256 palette, built once and cached.
 # 标准 xterm 256 调色板，构建一次后缓存。
-var s_palette: list<list<number>>
+var palette: list<list<number>>
 def Palette(): list<list<number>>
-  if !empty(s_palette)
-    return s_palette
+  if !empty(palette)
+    return palette
   endif
   var p: list<list<number>> = [
     [0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0],
@@ -135,7 +136,7 @@ def Palette(): list<list<number>>
     var v = 8 + i * 10
     add(p, [v, v, v])
   endfor
-  s_palette = p
+  palette = p
   return p
 enddef
 
@@ -144,7 +145,11 @@ enddef
 # 为 '#RRGGBB' 求最近的 xterm-256 色号（RGB 平方距离最小）。仅在主题未提供
 # cterm 色时作为回退。
 export def HexToCterm(hex: string): number
-  var m = matchlist(hex, '#\(..\)\(..\)\(..\)')
+  # Strict: exactly '#RRGGBB' with hex digits only.  Without the character
+  # class a value like '#gggggg' would match '..' and silently resolve to 0.
+  # 严格匹配：恰好 '#RRGGBB' 且仅含十六进制字符。若不加字符类，'#gggggg'
+  # 也会被 '..' 匹配并静默解析成 0。
+  var m = matchlist(hex, '#\([0-9a-fA-F]\{2\}\)\([0-9a-fA-F]\{2\}\)\([0-9a-fA-F]\{2\}\)$')
   if empty(m)
     return -1
   endif
@@ -186,6 +191,15 @@ def NormGui(gui: string): string
   return NameToHex(gui)
 enddef
 
+# Clamp a numeric colour index into the valid 0..255 range.  An out-of-range
+# value (e.g. g:mutedstl#fg = 300) would otherwise reach hlset() as an invalid
+# ctermfg and raise E254, so we normalise it here instead.
+# 把数字色号钳制到合法的 0..255 范围。否则越界值（如 g:mutedstl#fg = 300）
+# 会以非法 ctermfg 传给 hlset() 触发 E254，故在此归一化。
+def Clamp256(n: number): number
+  return n < 0 ? 0 : (n > 255 ? 255 : n)
+enddef
+
 # --- resolve one colour into a [gui, cterm] pair -----------------------------
 # Resolve a user option value (g:mutedstl#fg / #bg) into [gui, cterm].  The
 # value may be a 256-index number/'string', '#RRGGBB', a colour name or 'NONE'.
@@ -193,7 +207,8 @@ enddef
 # 或字符串、'#RRGGBB'、颜色名或 'NONE'。
 def ResolveOne(val: any): list<string>
   if type(val) == v:t_number
-    return [NrToHex(val), $'{val}']
+    var n = Clamp256(val)                                # accept 0..255 only
+    return [NrToHex(n), string(n)]
   endif
   # Take the string verbatim: string(val) would add quotes in Vim9.
   # 原样取字符串：Vim9 中 string(val) 会给字符串加引号。
@@ -201,7 +216,8 @@ def ResolveOne(val: any): list<string>
   if s ==# 'NONE'
     return ['NONE', 'NONE']
   elseif s =~# '^\d\+$'
-    return [NrToHex(str2nr(s)), s]
+    var n = Clamp256(str2nr(s))                          # accept 0..255 only
+    return [NrToHex(n), string(n)]
   elseif s =~# '^#'
     var c = HexToCterm(s)                              # hex: approximate cterm
     return [s, c < 0 ? 'NONE' : string(c)]
@@ -269,7 +285,7 @@ enddef
 # 需要真实地 `:colorscheme` 往返一次（约 2ms），缓存后重复调用即廉价。当前主题
 # （theme == ''）不缓存：它随 :colorscheme 变化，直接读取即可。ReloadCache()
 # 清空全部缓存。
-var s_theme_cache: dict<dict<string>>
+var theme_cache: dict<dict<string>>
 
 def ReadThemeNormal(theme: string): dict<string>
   # Current theme: read directly, no switching, no caching.
@@ -279,10 +295,11 @@ def ReadThemeNormal(theme: string): dict<string>
   endif
 
   var key = theme .. '|' .. &background
-  if has_key(s_theme_cache, key)
-    return s_theme_cache[key]
+  if has_key(theme_cache, key)
+    return theme_cache[key]
   endif
 
+  var had_name = exists('g:colors_name')
   var orig = get(g:, 'colors_name', '')
   var switched = false
   var orig_bg_opt = &background
@@ -299,22 +316,39 @@ def ReadThemeNormal(theme: string): dict<string>
   catch
     switched = false
   endtry
-  var normal = ReadNormal()
-  if switched && !empty(orig)
-    silent! noautocmd execute $'colorscheme {orig}'
+  # A failed switch leaves the PREVIOUS theme's Normal in place; reading it
+  # here would silently return the wrong colours (and cache them).  Report an
+  # empty result instead and do not cache, so callers fall back to NONE.
+  # 切换失败会残留上一个主题的 Normal；此时读取会静默返回错误颜色（并被缓存）。
+  # 故改为返回空结果且不缓存，让调用方回退到 NONE。
+  var normal = switched ? ReadNormal() : {}
+  if switched
+    if had_name && !empty(orig)
+      silent! noautocmd execute $'colorscheme {orig}'
+    endif
+    # Restore g:colors_name itself too: ':colorscheme {theme}' set it.  When
+    # the user had no colours_name at all, remove it again so the switch leaves
+    # no trace in the user's state.
+    # 同样要恢复 g:colors_name 本身：':colorscheme {theme}' 设置了它。若用户
+    # 原本就没有 colors_name，则再次删除，使切换不在用户状态里留痕。
+    if !had_name
+      unlet! g:colors_name
+    endif
   endif
   &background = orig_bg_opt
   for [var, val] in items(saved)
     g:[var] = val
   endfor
-  s_theme_cache[key] = normal
+  if switched
+    theme_cache[key] = normal
+  endif
   return normal
 enddef
 
 # Drop the theme colour cache (call after changing/installing colourschemes).
 # 清空主题颜色缓存（切换/新装配色方案后调用）。
 export def ReloadCache(): void
-  s_theme_cache = {}
+  theme_cache = {}
 enddef
 
 # Resolve the source theme's fg/bg into [gui, cterm] pairs.
@@ -621,8 +655,9 @@ export def String(): string
   # 默认布局：模式用 emphasis，其余用 ordinary。它只是默认值——可改用
   # Chunk()/GroupMark() 自建 'statusline'。
   var s = Chunk('%{mutedstl#Mode()}%{mutedstl#Paste()} ', 'emphasis')
-  s ..= Chunk('%( %<%t %) %m%r', 'ordinary')
-  s ..= Chunk('%= %y | Buf:%n | [%l:%c] %P of %LL ', 'ordinary')
+  # One ordinary chunk (a single group marker) for everything after the mode.
+  # 模式之后的全部内容共用一个 ordinary 区块（单个组标记，避免重复）。
+  s ..= Chunk('%( %<%t %) %m%r%= %y | Buf:%n | [%l:%c] %P of %LL ', 'ordinary')
   return s
 enddef
 
@@ -661,11 +696,15 @@ enddef
 # 安装状态栏与刷新自动命令。
 export def Setup(): void
   Refresh()
-  # Install String() as the DEFAULT 'statusline', but only when none is set;
-  # an explicit value (your own layout) is never overwritten.
-  # 仅当尚未设置时把 String() 作为默认 'statusline'；显式值（自定义布局）不会被
-  # 覆盖。
-  if empty(&statusline)
+  # Install String() as the DEFAULT 'statusline', but only when no GLOBAL
+  # value is set; an explicit value (your own layout) is never overwritten.
+  # Testing the global (not the effective, window-local-overridden) value means
+  # a window-local 'statusline' in one window does not stop every OTHER window
+  # from inheriting the default.
+  # 仅当“全局”未设置时把 String() 作为默认 'statusline'；显式值（自定义布局）
+  # 不会被覆盖。判断全局值（而非被窗口局部遮蔽的有效值），这样一个窗口的局部
+  # 'statusline' 不会阻止其它窗口继承默认值。
+  if empty(&g:statusline)
     set statusline=%!mutedstl#String()
   endif
   augroup mutedstl
@@ -681,4 +720,4 @@ export def Setup(): void
     autocmd BufWinEnter,WinEnter,FileType * mutedstl#Reassert()
   augroup END
 enddef
-# vim:tw=78:ts=2:sw=2:et:norl:
+# vim:tw=78:ts=8:sts=2:sw=2:et:norl:

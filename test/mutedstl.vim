@@ -74,7 +74,13 @@ enddef
 # =============================================================================
 
 # Ensure a deterministic colourscheme / 固定一个可预期的配色方案。
-silent! execute 'colorscheme novum'
+# Use a theme that ships with every Vim ('blue'), not a newer one that older
+# Vims may lack; assert it actually loaded so the suite fails loudly rather
+# than silently on a wrong baseline.
+# 使用每个 Vim 都自带的主题（blue），而非旧版可能缺失的新主题；并断言确实
+# 加载，使测试在基线错误时明确失败而不是静默通过。
+silent! execute 'colorscheme blue'
+Check('baseline: blue theme loaded', get(g:, 'colors_name', '') ==# 'blue')
 ms.ReloadCache()
 
 # --- 1. Colors(): default comes from the current Normal ----------------------
@@ -99,6 +105,33 @@ ClearOpts()
 g:mutedstl#fg = 1.5
 NoThrow('fg=1.5 (float) does not throw', () => ms.Colors())
 ClearOpts()
+
+# --- 2b. out-of-range numeric index is clamped, never E254 -------------------
+# 越界数字色号被钳制，绝不触发 E254。
+ClearOpts()
+g:mutedstl#fg = 300
+var cl = ms.Colors()
+Eq('fg=300 clamps gui to max', '#eeeeee', cl.fg[0])
+Eq('fg=300 clamps cterm to 255', '255', cl.fg[1])
+NoThrow('fg=300 ApplyDefault does not throw', () => ms.ApplyDefault())
+ClearOpts()
+g:mutedstl#fg = -5
+var cl2 = ms.Colors()
+Eq('fg=-5 clamps gui to min', '#000000', cl2.fg[0])
+Eq('fg=-5 clamps cterm to 0', '0', cl2.fg[1])
+ClearOpts()
+g:mutedstl#fg = '300'
+Eq('fg="#300" string clamps cterm', '255', ms.Colors().fg[1])
+ClearOpts()
+NoThrow('NrToHex(300) does not throw', () => ms.NrToHex(300))
+Eq('NrToHex(300) clamped', '#eeeeee', ms.NrToHex(300))
+Eq('NrToHex(-1) clamped', '#000000', ms.NrToHex(-1))
+
+# --- 2c. HexToCterm strictness ----------------------------------------------
+Eq('HexToCterm(#gggggg) is -1', -1, ms.HexToCterm('#gggggg'))
+Eq('HexToCterm(#ff00) is -1 (too short)', -1, ms.HexToCterm('#ff00'))
+Eq('HexToCterm(ff0000) is -1 (no #)', -1, ms.HexToCterm('ff0000'))
+Eq('HexToCterm(#ff0000z) is -1 (trailing)', -1, ms.HexToCterm('#ff0000z'))
 
 # --- 3. explicit overrides / 显式覆盖 ----------------------------------------
 WithOpts('#ff8800', '', -1, () => {
@@ -195,16 +228,54 @@ Eq('ApplyDefault: Inactive == Ordinary (cterm)', get(od[0], 'ctermfg', ''), get(
 Check('ApplyDefault: Emphasis differs from Ordinary', get(em[0], 'guifg', '') !=# get(od[0], 'guifg', ''))
 
 # --- 10. theme option + cache ------------------------------------------------
-var cached_theme = 'everforest'
+# Use a theme that ships with Vim ('blue'); a non-existent name would now
+# (correctly) yield NONE rather than the previous theme's leaked colours.
+# 使用 Vim 自带主题（blue）；不存在的名字现在会（正确地）返回 NONE，而不是
+# 泄漏上一个主题的颜色。
+var cached_theme = 'blue'
 WithOpts('', '', 0, () => {
   g:mutedstl#theme = cached_theme
   var t1 = ms.Colors()
   var t2 = ms.Colors()
   Eq('theme: stable across calls (cache hit)', t1.fg, t2.fg)
   Check('theme: fg is concrete', t1.fg[0] =~# '^#')
+  Check('theme: not none', t1.is_none == false)
 })
 ClearOpts()
 NoThrow('ReloadCache() does not throw', () => ms.ReloadCache())
+
+# --- 10b. a non-existent theme must NOT leak the previous theme's colours ----
+# 不存在的主题绝不能泄漏上一个主题的颜色（也不能被缓存）。
+silent! colorscheme blue            # load a real theme so a stale Normal exists
+ms.ReloadCache()
+var bad = ms.FromTheme('no_such_theme_xyz', 'fg')
+Eq('missing theme -> NONE (no stale leak)', ['NONE', 'NONE'], bad)
+# switch elsewhere, then re-read: still NONE (nothing was cached)
+silent! colorscheme desert
+var bad2 = ms.FromTheme('no_such_theme_xyz', 'fg')
+Eq('missing theme stays NONE (not cached)', ['NONE', 'NONE'], bad2)
+ClearOpts()
+g:mutedstl#theme = 'no_such_theme_xyz'
+var cbad = ms.Colors()
+Check('Colors(missing theme) is_none', cbad.is_none == true)
+ClearOpts()
+ms.ReloadCache()
+
+# --- 10c. reading another theme must restore g:colors_name -------------------
+# 读取其它主题后必须恢复 g:colors_name（无副作用泄漏）。
+silent! colorscheme blue
+ms.ReloadCache()
+var bg_before = &background
+ms.FromTheme('desert', 'fg')
+Eq('FromTheme restores colors_name', 'blue', get(g:, 'colors_name', '<unset>'))
+Eq('FromTheme restores background', bg_before, &background)
+# When the user had no colors_name at all, it must stay unset afterwards.
+unlet! g:colors_name
+ms.ReloadCache()
+ms.FromTheme('desert', 'fg')
+Check('FromTheme leaves colors_name unset if it was unset', !exists('g:colors_name'))
+ms.ReloadCache()
+silent! colorscheme blue            # restore a known baseline for later cases
 
 # --- 11. String(): structural checks -----------------------------------------
 var sl = ms.String()
@@ -263,6 +334,28 @@ NoThrow('Refresh() does not throw', () => ms.Refresh())
 NoThrow('Redraw() does not throw', () => ms.Redraw())
 NoThrow('Reassert() does not throw', () => ms.Reassert())
 
+# --- 14. Setup(): default is installed based on the GLOBAL statusline --------
+# Setup() 依据“全局” statusline 决定是否安装默认值。
+set statusline=
+setlocal statusline<
+ms.Setup()
+Check('Setup: installs default when global empty', &g:statusline =~# 'mutedstl#String')
+# an explicit global value is never overwritten
+set statusline=MY_OWN
+ms.Setup()
+Eq('Setup: explicit global value kept', 'MY_OWN', &g:statusline)
+# a window-local value must not block the global default
+set statusline=
+setlocal statusline=LOCAL_ONLY
+ms.Setup()
+Check('Setup: window-local does not block global default', &g:statusline =~# 'mutedstl#String')
+setlocal statusline<
+set statusline=
+
+# --- 15. String(): no duplicated consecutive group marker --------------------
+var stl_str = ms.String()
+Check('String: single Ordinary marker', len(split(stl_str, '%#MutedstlOrdinary#')) == 2)
+
 # =============================================================================
 # Summary / 汇总
 # =============================================================================
@@ -293,3 +386,4 @@ if empty(failed)
 else
   cquit      # non-zero exit on failure / 失败时非零退出
 endif
+# vim:tw=78:ts=8:sts=2:sw=2:et:norl:

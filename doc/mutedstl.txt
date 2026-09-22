@@ -1,4 +1,4 @@
-*mutedstl.txt*   A muted, self-contained statusline for Vim 9   *mutedstl*
+*mutedstl.txt*   A muted, self-contained statusline for Vim 9   For Vim version 9 and later.  Last change: 2026 Sep 23
 
                        LLM POWERED!   LLM POWERED!
      This plugin was designed and written with the help of a large
@@ -21,7 +21,7 @@ CONTENTS ~
  10. Contributing        |mutedstl-contributing|
 
 ==============================================================================
-1. INTRODUCTION                                     *mutedstl-intro*
+1. INTRODUCTION                            *mutedstl* *mutedstl-intro*
 
     素洁：前后景协调，即几乎适配任何主题；多色状态栏除外。
 
@@ -53,7 +53,8 @@ side.
 2. REQUIREMENTS                                 *mutedstl-requirements*
 
 - Vim 9 or later with the |+vim9script| feature.
-- |v:colornames| (Vim 8.2.4774+) and |hlget()| / |hlset()|.
+- |hlget()| and |hlset()| (both added in Vim 9.0).
+- |v:colornames| (added in Vim 8.2.4774, so always present in Vim 9).
 
 On older Vim, or without +vim9script, the plugin stays dormant.
 
@@ -105,6 +106,8 @@ All options live in the `g:mutedstl#` namespace.  Set them before calling
             are read (with known transparency switches forced off, so a
             transparent theme still yields an opaque background).  Named
             themes are cached, keyed by theme and 'background'.
+            A name that is not an available colourscheme yields 'NONE' colours
+            (the plugin never falls back to the previous theme's colours).
 
                                                  *g:mutedstl#invert*
 #invert     number (default 0)
@@ -133,7 +136,8 @@ All options live in the `g:mutedstl#` namespace.  Set them before calling
             pair as active ordinary) or 'emphasis' (the inverted pair).
 
 An override that is present but not a usable value falls back to the theme
-colour instead of raising an error.
+colour instead of raising an error.  A numeric colour index outside 0..255 is
+clamped into range (no error).
 
 ==============================================================================
 6. HIGHLIGHT GROUPS                             *mutedstl-groups*
@@ -154,8 +158,10 @@ mutedstl#Setup()
         Apply the highlight groups and install the refresh autocommands
         (ColorScheme, OptionSet background, re-assertion on buffer/window
         entry).  It also installs String() as the DEFAULT 'statusline', but
-        ONLY when you have not set 'statusline' yourself: an explicit value is
-        never overwritten (see |mutedstl-custom|).
+        ONLY when no global 'statusline' is set: an explicit value is never
+        overwritten (see |mutedstl-custom|).  The check is on the global
+        value, so a window-local 'statusline' in one window does not stop
+        other windows from inheriting the default.
 
                                                         *mutedstl#Refresh()*
 mutedstl#Refresh()
@@ -197,8 +203,8 @@ mutedstl#Colors()
             inactive  [fg, bg]  non-current-window chunk (g:mutedstl#inactive)
             fg        [gui, cterm]  resolved foreground
             bg        [gui, cterm]  resolved background
-            invert    0 | 1
-            is_none   0 | 1     true if a side is transparent
+            invert    Boolean   true if fg/bg were swapped
+            is_none   Boolean   true if a side is transparent
 
         A [fg, bg] chunk is [[gui, cterm], [gui, cterm]]; 'gui' is '#RRGGBB'
         (or 'NONE') and 'cterm' is a 0..255 index string (or 'NONE').
@@ -258,12 +264,14 @@ mutedstl#FromTheme({theme}, {attr})
 
                                                           *mutedstl#NrToHex()*
 mutedstl#NrToHex({n})
-        Convert a 256-colour index to an approximate '#RRGGBB'.
+        Convert a 256-colour index to an approximate '#RRGGBB'.  {n} is
+        clamped into 0..255, so the result is always a valid colour.
 
                                                        *mutedstl#HexToCterm()*
 mutedstl#HexToCterm({hex})
         Nearest xterm-256 index for a '#RRGGBB' value (min squared RGB
-        distance).
+        distance).  Returns -1 when {hex} is not exactly '#RRGGBB' with hex
+        digits only.
 
                                                         *mutedstl#NameToHex()*
 mutedstl#NameToHex({name})

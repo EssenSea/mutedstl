@@ -3,8 +3,8 @@ vim9script
 # plugin/mutedstl.vim  — the only auto-sourced file of this plugin
 # plugin/mutedstl.vim  — 本插件唯一自动加载的文件
 #
-# Maintainer:  <your name> <you@example.com>
-# Last Change: 2026-09-22
+# Maintainer:  EssenMoon <yueqrgg@gmail.com>
+# Last Change: 2026-09-23
 #
 #   LLM POWERED!  This plugin was designed and written with the help of a
 #   large language model.  LLM POWERED!
@@ -21,7 +21,7 @@ vim9script
 #
 # Otherwise enable it manually whenever you like / 否则可随时手动启用:
 #
-#     import autoload 'pack/mutedstl/start/mutedstl/autoload/mutedstl.vim'
+#     import autoload 'mutedstl.vim'
 #     mutedstl.Setup()
 #
 # (The legacy `mutedstl#Setup()` name still works too.)
@@ -56,4 +56,4 @@ nnoremap <silent> <Plug>(mutedstl-redraw)  <ScriptCmd>mutedstl.Redraw()<CR>
 # Drop the theme cache, then re-apply and redraw (after changing colourschemes).
 # 清空主题缓存后重算并重绘（更改配色方案后使用）。
 nnoremap <silent> <Plug>(mutedstl-reload)  <ScriptCmd>mutedstl.ReloadCache()<Bar>mutedstl.Refresh()<Bar>mutedstl.Redraw()<CR>
-# vim:tw=78:ts=2:sw=2:et:norl:
+# vim:tw=78:ts=8:sts=2:sw=2:et:norl:

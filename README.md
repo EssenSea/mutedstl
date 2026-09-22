@@ -106,7 +106,9 @@ All in the `g:mutedstl#` namespace; see `:help mutedstl-options`.
 | `g:mutedstl#inactive` | `'ordinary'` | Chunk for non-current windows (`ordinary`/`emphasis`). / 非当前窗口区块 |
 
 Override values: `'#RRGGBB'`, a colour name, a 256-colour index, or `'NONE'`.
-覆盖值：`'#RRGGBB'`、颜色名、256 色号或 `'NONE'`。
+A numeric index outside 0..255 is clamped into range (no error).
+覆盖值：`'#RRGGBB'`、颜色名、256 色号或 `'NONE'`。越界的数字色号会被钳制到
+0..255（不报错）。
 
 ## Custom statusline / 自定义状态栏
 
