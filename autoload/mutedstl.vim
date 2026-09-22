@@ -21,12 +21,12 @@ vim9script
 # API: Setup/Refresh/Redraw/Reassert, String, Chunk, Colors/Hi/Apply/ApplyDefault,
 #   Mode/Paste/IsActive, GroupName/GroupMark, FromTheme, ReloadCache,
 #   NrToHex/HexToCterm/NameToHex.   See :help mutedstl
-# Options (g:mutedstl#*): theme, invert, fg, bg, prefix, inactive.
+# Options (g:mutedstl_*): theme, invert, fg, bg, prefix, inactive.
 # Override values / 覆盖值: '#RRGGBB', a colour name, a 256 index, or 'NONE'.
 # =============================================================================
 
-# --- option lookup / 选项查询 (g:mutedstl#* only) -------------------------
-const opt_ns = 'mutedstl#'
+# --- option lookup / 选项查询 (g:mutedstl_* only) -------------------------
+const opt_ns = 'mutedstl_'
 
 # Emit a diagnostic message, but only when diagnostics are enabled with
 # g:mutedstl_debug.  Used to make silent fallbacks observable without
@@ -39,8 +39,34 @@ def Warn(msg: string): void
   endif
 enddef
 
-# Read an option by name (g:mutedstl#<name>), or {default} if unset.
-# 按名读取选项（g:mutedstl#<name>），未设时返回 {default}。
+# Announce use of a deprecated stable item.  Called from the deprecated code
+# path so users see the notice under g:mutedstl_debug while the old behaviour
+# is still honoured.  See :help mutedstl-deprecation for the full policy.
+# 宣布使用了已弃用的稳定项。在弃用代码路径中调用，使 g:mutedstl_debug 下用户
+# 能看到提示，同时仍然保留旧行为。完整政策见 :help mutedstl-deprecation。
+def Deprecated(what: string, replacement: string): void
+  Warn($'deprecated: {what} is deprecated, use {replacement} instead')
+enddef
+
+# Core capability probe: mutedstl needs the structured highlight API.  If it
+# is missing (e.g. a Vim build without hlget()/hlset()), the plugin must stay
+# dormant with a clear message instead of erroring mid-render.
+# 核心能力探测：本插件需要结构化高亮 API。若缺失（如没有 hlget()/hlset()
+# 的 Vim 构建），插件应保持休眠并给出清晰信息，而不是在渲染中途报错。
+export def HasCapabilities(): bool
+  return exists('*hlget') == 1 && exists('*hlset') == 1
+enddef
+
+def RequireCapabilities(): bool
+  if HasCapabilities()
+    return true
+  endif
+  Warn('this Vim lacks hlget()/hlset(); mutedstl stays inactive')
+  return false
+enddef
+
+# Read an option by name (g:mutedstl_<name>), or {default} if unset.
+# 按名读取选项（g:mutedstl_<name>），未设时返回 {default}。
 def Opt(name: string, default: any): any
   var key = opt_ns .. name
   return exists('g:' .. key) ? get(g:, key) : default
@@ -211,18 +237,18 @@ def NormGui(gui: string): string
 enddef
 
 # Clamp a numeric colour index into the valid 0..255 range.  An out-of-range
-# value (e.g. g:mutedstl#fg = 300) would otherwise reach hlset() as an invalid
+# value (e.g. g:mutedstl_fg = 300) would otherwise reach hlset() as an invalid
 # ctermfg and raise E254, so we normalise it here instead.
-# 把数字色号钳制到合法的 0..255 范围。否则越界值（如 g:mutedstl#fg = 300）
+# 把数字色号钳制到合法的 0..255 范围。否则越界值（如 g:mutedstl_fg = 300）
 # 会以非法 ctermfg 传给 hlset() 触发 E254，故在此归一化。
 def Clamp256(n: number): number
   return n < 0 ? 0 : (n > 255 ? 255 : n)
 enddef
 
 # --- resolve one colour into a [gui, cterm] pair -----------------------------
-# Resolve a user option value (g:mutedstl#fg / #bg) into [gui, cterm].  The
+# Resolve a user option value (g:mutedstl_fg / g:mutedstl_bg) into [gui, cterm].  The
 # value may be a 256-index number/'string', '#RRGGBB', a colour name or 'NONE'.
-# 将用户选项值（g:mutedstl#fg / #bg）解析为 [gui, cterm]，可为 256 色号数字
+# 将用户选项值（g:mutedstl_fg / g:mutedstl_bg）解析为 [gui, cterm]，可为 256 色号数字
 # 或字符串、'#RRGGBB'、颜色名或 'NONE'。
 def ResolveOne(val: any): list<string>
   if type(val) == v:t_number
@@ -283,6 +309,9 @@ const transparent_opts = [
 # Current Normal's four channels via hlget() ('' when absent).
 # 用 hlget() 读取当前 Normal 的四个通道（缺失时为空串）。
 def ReadNormal(): dict<string>
+  if !HasCapabilities()
+    return {}
+  endif
   var g = hlget('Normal', v:true)
   if empty(g)
     return {}
@@ -401,10 +430,10 @@ export def ReloadCache(): void
   theme_cache = {}
 enddef
 
-# Resolve the source theme's fg/bg (the g:mutedstl#theme option) into
+# Resolve the source theme's fg/bg (the g:mutedstl_theme option) into
 # [gui, cterm] pairs.  Thin wrapper over the public FromTheme() so the
 # theme/Normal extraction lives in exactly one place.
-# 解析来源主题（g:mutedstl#theme 选项）的前景/背景为 [gui, cterm] 对。对公共
+# 解析来源主题（g:mutedstl_theme 选项）的前景/背景为 [gui, cterm] 对。对公共
 # 接口 FromTheme() 的薄封装，使“主题→Normal”的提取逻辑只有一处。
 def ThemePair(attr: string): list<string>
   return FromTheme(OptStr('theme', ''), attr)
@@ -458,7 +487,7 @@ enddef
 # Returns a Dictionary / 返回字典:
 #   ordinary  [fg, bg]  the normal chunk     / 普通区块
 #   emphasis  [fg, bg]  the inverted chunk   / 反色区块
-#   inactive  [fg, bg]  chunk for non-current windows (see g:mutedstl#inactive)
+#   inactive  [fg, bg]  chunk for non-current windows (see g:mutedstl_inactive)
 #   fg        [gui, cterm]  resolved foreground / 解析后的前景
 #   bg        [gui, cterm]  resolved background / 解析后的背景
 #   invert    0 | 1         whether fg/bg were swapped / 是否已交换
@@ -487,9 +516,9 @@ export def Colors(): dict<any>
 enddef
 
 # Which chunk the inactive (non-current) windows should use.  Default is the
-# ordinary chunk; set g:mutedstl#inactive = 'emphasis' to use the inverted pair
+# ordinary chunk; set g:mutedstl_inactive = 'emphasis' to use the inverted pair
 # instead (e.g. to make inactive windows stand out differently).
-# 非当前窗口使用哪个区块。默认 ordinary；设 g:mutedstl#inactive = 'emphasis'
+# 非当前窗口使用哪个区块。默认 ordinary；设 g:mutedstl_inactive = 'emphasis'
 # 可改用反色对。
 def InactiveKind(): string
   return OptStr('inactive', 'ordinary') ==# 'emphasis' ? 'emphasis' : 'ordinary'
@@ -504,6 +533,12 @@ export def Hi(group: string, chunk: list<any>): void
   # 底层 E684/E928。
   if len(chunk) != 2 || len(chunk[0]) != 2 || len(chunk[1]) != 2
     throw $'mutedstl: Hi(): chunk must be [[fg_gui, fg_cterm], [bg_gui, bg_cterm]], got {string(chunk)}'
+  endif
+  if !HasCapabilities()
+    # No structured highlight API: silently skip so callers tuned for another
+    # Vim do not blow up.  Setup() already reports the situation.
+    # 无结构化高亮 API：静默跳过，避免在别处调优过的调用方崩溃。Setup() 已报告。
+    return
   endif
   var fg = chunk[0]
   var bg = chunk[1]
@@ -551,8 +586,8 @@ export def ApplyDefault(): void
   })
 enddef
 
-# Highlight-group name prefix; override with g:mutedstl#prefix.
-# 高亮组名前缀；可用 g:mutedstl#prefix 覆盖。
+# Highlight-group name prefix; override with g:mutedstl_prefix.
+# 高亮组名前缀；可用 g:mutedstl_prefix 覆盖。
 def Prefix(): string
   return OptStr('prefix', 'Mutedstl')
 enddef
@@ -598,8 +633,8 @@ export def FromTheme(theme: string, attr: string): list<string>
 enddef
 
 # Public: map a logical kind to its highlight group name (honours
-# g:mutedstl#prefix).  For use in a custom 'statusline'.
-# 公共接口：把逻辑类别映射到高亮组名（遵循 g:mutedstl#prefix）。供自定义
+# g:mutedstl_prefix).  For use in a custom 'statusline'.
+# 公共接口：把逻辑类别映射到高亮组名（遵循 g:mutedstl_prefix）。供自定义
 # 'statusline' 使用。  kind: 'emphasis' | 'ordinary' | 'inactive'
 export def GroupName(kind: string): string
   return Grp(kind)
@@ -749,13 +784,11 @@ export def Redraw(): void
   redrawstatus
 enddef
 
-# Plugins may leave a stale WINDOW-LOCAL 'statusline' (vim-matchup's offscreen
-# races on fast tag jumps; goyo hides it) that shadows the global one and can
-# show a stray fragment like '/'.  `setlocal statusline<` clears it so the
-# window inherits the global statusline again.
-# 插件可能残留“窗口局部”的 'statusline'（matchup offscreen 快速跳转时竞态；
-# goyo 隐藏它），遮蔽全局值并可能只剩 '/' 之类残片。`setlocal statusline<`
-# 清除它，使窗口重新继承全局状态栏。
+# Some plugins (and buffer-local setups) can leave a stale WINDOW-LOCAL
+# 'statusline' that shadows the global one and may show a stray fragment.
+# `setlocal statusline<` clears it so the window inherits the global value.
+# 某些插件（或缓冲区局部设置）可能残留“窗口局部”的 'statusline'，遮蔽全局值
+# 并可能显示残片。`setlocal statusline<` 清除它，使窗口重新继承全局值。
 export def Reassert(): void
   setlocal statusline<
 enddef
@@ -763,6 +796,9 @@ enddef
 # Install the statusline and refresh autocmds.
 # 安装状态栏与刷新自动命令。
 export def Setup(): void
+  if !RequireCapabilities()
+    return
+  endif
   Refresh()
   # Install String() as the DEFAULT 'statusline', but only when no GLOBAL
   # value is set; an explicit value (your own layout) is never overwritten.

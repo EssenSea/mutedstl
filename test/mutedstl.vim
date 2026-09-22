@@ -75,15 +75,15 @@ enddef
 # --- helpers to isolate each case / 每个用例的环境隔离 ------------------------
 def ClearOpts(): void
   for k in ['invert', 'theme', 'fg', 'bg', 'prefix', 'inactive']
-    execute 'unlet! g:mutedstl#' .. k
+    execute 'unlet! g:mutedstl_' .. k
   endfor
 enddef
 
 def WithOpts(fg: string, bg: string, invert: number, Fn: func): void
   ClearOpts()
-  if !empty(fg)   | g:mutedstl#fg = fg | endif
-  if !empty(bg)   | g:mutedstl#bg = bg | endif
-  if invert >= 0  | g:mutedstl#invert = invert | endif
+  if !empty(fg)   | g:mutedstl_fg = fg | endif
+  if !empty(bg)   | g:mutedstl_bg = bg | endif
+  if invert >= 0  | g:mutedstl_invert = invert | endif
   Fn()
   ClearOpts()
 enddef
@@ -148,31 +148,31 @@ ms.ReloadCache()
 # --- 2. invalid overrides fall back safely (no throw) ------------------------
 # 非法覆盖值安全回退（不抛异常）。
 ClearOpts()
-g:mutedstl#invert = 'abc'
+g:mutedstl_invert = 'abc'
 NoThrow('invert="abc" does not throw', () => ms.Colors())
 ClearOpts()
-g:mutedstl#theme = 123
+g:mutedstl_theme = 123
 NoThrow('theme=123 does not throw', () => ms.Colors())
 ClearOpts()
-g:mutedstl#fg = 1.5
+g:mutedstl_fg = 1.5
 NoThrow('fg=1.5 (float) does not throw', () => ms.Colors())
 ClearOpts()
 
 # --- 2b. out-of-range numeric index is clamped, never E254 -------------------
 # 越界数字色号被钳制，绝不触发 E254。
 ClearOpts()
-g:mutedstl#fg = 300
+g:mutedstl_fg = 300
 var cl = ms.Colors()
 Eq('fg=300 clamps gui to max', '#eeeeee', cl.fg[0])
 Eq('fg=300 clamps cterm to 255', '255', cl.fg[1])
 NoThrow('fg=300 ApplyDefault does not throw', () => ms.ApplyDefault())
 ClearOpts()
-g:mutedstl#fg = -5
+g:mutedstl_fg = -5
 var cl2 = ms.Colors()
 Eq('fg=-5 clamps gui to min', '#000000', cl2.fg[0])
 Eq('fg=-5 clamps cterm to 0', '0', cl2.fg[1])
 ClearOpts()
-g:mutedstl#fg = '300'
+g:mutedstl_fg = '300'
 Eq('fg="#300" string clamps cterm', '255', ms.Colors().fg[1])
 ClearOpts()
 NoThrow('NrToHex(300) does not throw', () => ms.NrToHex(300))
@@ -207,9 +207,9 @@ WithOpts('NONE', '', -1, () => {
 
 # --- 4. invert swaps fg/bg ---------------------------------------------------
 ClearOpts()
-g:mutedstl#invert = 0
+g:mutedstl_invert = 0
 var c0 = ms.Colors()
-g:mutedstl#invert = 1
+g:mutedstl_invert = 1
 var c1 = ms.Colors()
 Eq('invert=1 swaps fg', c0.bg, c1.fg)
 Eq('invert=1 swaps bg', c0.fg, c1.bg)
@@ -286,7 +286,7 @@ Check('ApplyDefault: Emphasis differs from Ordinary', get(em[0], 'guifg', '') !=
 # 泄漏上一个主题的颜色。
 var cached_theme = 'blue'
 WithOpts('', '', 0, () => {
-  g:mutedstl#theme = cached_theme
+  g:mutedstl_theme = cached_theme
   var t1 = ms.Colors()
   var t2 = ms.Colors()
   Eq('theme: stable across calls (cache hit)', t1.fg, t2.fg)
@@ -307,7 +307,7 @@ silent! colorscheme desert
 var bad2 = ms.FromTheme('no_such_theme_xyz', 'fg')
 Eq('missing theme stays NONE (not cached)', ['NONE', 'NONE'], bad2)
 ClearOpts()
-g:mutedstl#theme = 'no_such_theme_xyz'
+g:mutedstl_theme = 'no_such_theme_xyz'
 var cbad = ms.Colors()
 Check('Colors(missing theme) is_none', cbad.is_none == true)
 ClearOpts()
@@ -350,7 +350,7 @@ Check('FromTheme fg is a [gui,cterm] pair', len(tf) == 2)
 Check('FromTheme fg gui is a colour', tf[0] =~# '^#' || tf[0] ==# 'NONE')
 # GroupName honours the prefix option
 Eq('GroupName default emphasis', 'MutedstlEmphasis', ms.GroupName('emphasis'))
-g:mutedstl#prefix = 'Zz'
+g:mutedstl_prefix = 'Zz'
 Eq('GroupName with prefix', 'ZzEmphasis', ms.GroupName('emphasis'))
 ms.ApplyDefault()
 Check('prefixed group created', !empty(hlget('ZzEmphasis', v:true)))
@@ -361,7 +361,7 @@ Eq('GroupName back to default', 'MutedstlEmphasis', ms.GroupName('emphasis'))
 Eq('GroupMark inactive default', '%#MutedstlInactive#', ms.GroupMark('inactive'))
 # Colors() exposes an inactive chunk
 Check('Colors has inactive chunk', has_key(ms.Colors(), 'inactive'))
-g:mutedstl#inactive = 'emphasis'
+g:mutedstl_inactive = 'emphasis'
 var ci = ms.Colors()
 Eq('inactive=emphasis uses emphasis chunk', ci.emphasis, ci.inactive)
 ClearOpts()
@@ -432,6 +432,55 @@ set statusline=
 # --- 15. String(): no duplicated consecutive group marker --------------------
 var stl_str = ms.String()
 Check('String: single Ordinary marker', len(split(stl_str, '%#MutedstlOrdinary#')) == 2)
+
+# =============================================================================
+# 16. Backward-compatibility contract (see :help mutedstl-stable-api)
+# 向后兼容契约（见 :help mutedstl-stable-api）。
+# These assertions freeze the public surface.  A change that trips one of them
+# is a breaking change and must be accompanied by a major version bump and a
+# deprecation step (see :help mutedstl-deprecation).
+# 这些断言冻结公共接口。若某项失败即为破坏性变更，必须伴随主版本号提升与
+# 弃用流程（见 :help mutedstl-deprecation）。
+# =============================================================================
+var cc = ms.Colors()
+Eq('compat: Colors() keys', ['bg', 'emphasis', 'fg', 'inactive', 'invert', 'is_none', 'ordinary'], sort(keys(cc)))
+Check('compat: Colors().ordinary is [fg, bg]', len(cc.ordinary) == 2 && len(cc.ordinary[0]) == 2 && len(cc.ordinary[1]) == 2)
+Check('compat: Colors().emphasis is [fg, bg]', len(cc.emphasis) == 2 && len(cc.emphasis[0]) == 2 && len(cc.emphasis[1]) == 2)
+Check('compat: Colors().inactive is [fg, bg]', len(cc.inactive) == 2 && len(cc.inactive[0]) == 2 && len(cc.inactive[1]) == 2)
+Check('compat: Colors().fg is [gui, cterm]', len(cc.fg) == 2)
+Check('compat: Colors().bg is [gui, cterm]', len(cc.bg) == 2)
+Check('compat: Colors().invert is Boolean', type(cc.invert) == v:t_bool)
+Check('compat: Colors().is_none is Boolean', type(cc.is_none) == v:t_bool)
+
+# Return-type contract for the other stable functions.
+Check('compat: NrToHex -> String', type(ms.NrToHex(0)) == v:t_string)
+Check('compat: HexToCterm -> Number', type(ms.HexToCterm('#000000')) == v:t_number)
+Check('compat: NameToHex -> String', type(ms.NameToHex('Red')) == v:t_string)
+Check('compat: FromTheme -> List', type(ms.FromTheme('', 'fg')) == v:t_list)
+Check('compat: Mode -> String', type(ms.Mode('n')) == v:t_string)
+Check('compat: Paste -> String', type(ms.Paste()) == v:t_string)
+Check('compat: IsActive -> Boolean', type(ms.IsActive()) == v:t_bool)
+Check('compat: GroupName -> String', type(ms.GroupName('ordinary')) == v:t_string)
+Check('compat: GroupMark -> String', type(ms.GroupMark('ordinary')) == v:t_string)
+Check('compat: Chunk -> String', type(ms.Chunk('%t')) == v:t_string)
+Check('compat: String -> String', type(ms.String()) == v:t_string)
+
+# Capability probe is part of the contract, and on a capable Vim it must be
+# true; the plugin's guards rely on it.
+Check('compat: HasCapabilities() is Boolean', type(ms.HasCapabilities()) == v:t_bool)
+CheckIf(has('vim9script'), 'compat: HasCapabilities() true on Vim 9', ms.HasCapabilities() == true)
+
+# Option names are part of the contract: setting the documented option must
+# actually take effect (and the documented default must hold when unset).
+ClearOpts()
+g:mutedstl_prefix = 'Compat'
+Eq('compat: g:mutedstl_prefix takes effect', 'CompatEmphasis', ms.GroupName('emphasis'))
+ClearOpts()
+Eq('compat: g:mutedstl_prefix default', 'MutedstlEmphasis', ms.GroupName('emphasis'))
+Eq('compat: g:mutedstl_inactive default', '%#MutedstlInactive#', ms.GroupMark('inactive'))
+g:mutedstl_inactive = 'emphasis'
+Eq('compat: g:mutedstl_inactive takes effect', 'emphasis', ms.Colors().inactive == ms.Colors().emphasis ? 'emphasis' : 'other')
+ClearOpts()
 
 # =============================================================================
 # Summary / 汇总

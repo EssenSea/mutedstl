@@ -1,11 +1,11 @@
 clean	mutedstl.txt	/*clean*
-g:mutedstl#bg	mutedstl.txt	/*g:mutedstl#bg*
-g:mutedstl#fg	mutedstl.txt	/*g:mutedstl#fg*
-g:mutedstl#inactive	mutedstl.txt	/*g:mutedstl#inactive*
-g:mutedstl#invert	mutedstl.txt	/*g:mutedstl#invert*
-g:mutedstl#prefix	mutedstl.txt	/*g:mutedstl#prefix*
-g:mutedstl#theme	mutedstl.txt	/*g:mutedstl#theme*
+g:mutedstl_bg	mutedstl.txt	/*g:mutedstl_bg*
 g:mutedstl_debug	mutedstl.txt	/*g:mutedstl_debug*
+g:mutedstl_fg	mutedstl.txt	/*g:mutedstl_fg*
+g:mutedstl_inactive	mutedstl.txt	/*g:mutedstl_inactive*
+g:mutedstl_invert	mutedstl.txt	/*g:mutedstl_invert*
+g:mutedstl_prefix	mutedstl.txt	/*g:mutedstl_prefix*
+g:mutedstl_theme	mutedstl.txt	/*g:mutedstl_theme*
 mutedstl	mutedstl.txt	/*mutedstl*
 mutedstl#Apply()	mutedstl.txt	/*mutedstl#Apply()*
 mutedstl#ApplyDefault()	mutedstl.txt	/*mutedstl#ApplyDefault()*
@@ -14,6 +14,7 @@ mutedstl#Colors()	mutedstl.txt	/*mutedstl#Colors()*
 mutedstl#FromTheme()	mutedstl.txt	/*mutedstl#FromTheme()*
 mutedstl#GroupMark()	mutedstl.txt	/*mutedstl#GroupMark()*
 mutedstl#GroupName()	mutedstl.txt	/*mutedstl#GroupName()*
+mutedstl#HasCapabilities()	mutedstl.txt	/*mutedstl#HasCapabilities()*
 mutedstl#HexToCterm()	mutedstl.txt	/*mutedstl#HexToCterm()*
 mutedstl#Hi()	mutedstl.txt	/*mutedstl#Hi()*
 mutedstl#IsActive()	mutedstl.txt	/*mutedstl#IsActive()*
@@ -28,8 +29,10 @@ mutedstl#ReloadCache()	mutedstl.txt	/*mutedstl#ReloadCache()*
 mutedstl#Setup()	mutedstl.txt	/*mutedstl#Setup()*
 mutedstl#String()	mutedstl.txt	/*mutedstl#String()*
 mutedstl-api	mutedstl.txt	/*mutedstl-api*
+mutedstl-compat	mutedstl.txt	/*mutedstl-compat*
 mutedstl-contributing	mutedstl.txt	/*mutedstl-contributing*
 mutedstl-custom	mutedstl.txt	/*mutedstl-custom*
+mutedstl-deprecation	mutedstl.txt	/*mutedstl-deprecation*
 mutedstl-enable	mutedstl.txt	/*mutedstl-enable*
 mutedstl-groups	mutedstl.txt	/*mutedstl-groups*
 mutedstl-install	mutedstl.txt	/*mutedstl-install*
@@ -37,5 +40,8 @@ mutedstl-intro	mutedstl.txt	/*mutedstl-intro*
 mutedstl-llm-powered	mutedstl.txt	/*mutedstl-llm-powered*
 mutedstl-notes	mutedstl.txt	/*mutedstl-notes*
 mutedstl-options	mutedstl.txt	/*mutedstl-options*
+mutedstl-options-stable	mutedstl.txt	/*mutedstl-options-stable*
 mutedstl-requirements	mutedstl.txt	/*mutedstl-requirements*
+mutedstl-stable-api	mutedstl.txt	/*mutedstl-stable-api*
+mutedstl-support	mutedstl.txt	/*mutedstl-support*
 mutedstl.txt	mutedstl.txt	/*mutedstl.txt*

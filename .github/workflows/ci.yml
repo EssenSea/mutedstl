@@ -11,28 +11,35 @@ permissions:
 
 jobs:
   test:
-    name: Vim ${{ matrix.vim }}
-    runs-on: ubuntu-latest
+    name: Vim ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        # The distro package plus the newest official AppImage: two practical
-        # points.  Building every Vim point release from source is overkill.
-        vim: [distro, latest]
+        include:
+          # Minimum supported line: Vim 9.1 (the current stable in major
+          # distributions, e.g. Gentoo 9.1.1652).  Tested on the distro Vim.
+          - name: minimum (9.1, ubuntu-24.04)
+            os: ubuntu-24.04
+            install: apt
+          # Newest official release, to catch forward-compatibility issues.
+          - name: latest (official AppImage)
+            os: ubuntu-latest
+            install: appimage
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Vim (distro)
-        if: matrix.vim == 'distro'
+      - name: Install Vim (apt)
+        if: matrix.install == 'apt'
         run: |
           sudo apt-get update
-          # vim-nox is a full build (vim9script, +eval, complete runtime)
-          # rather than the slim 'vim' metapackage.
+          # vim-nox is a full build (vim9script, +eval, complete runtime);
+          # fall back to 'vim' if unavailable.
           sudo apt-get install -y vim-nox || sudo apt-get install -y vim
           vim --version | head -1
 
       - name: Install Vim (latest official AppImage)
-        if: matrix.vim == 'latest'
+        if: matrix.install == 'appimage'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -58,10 +65,11 @@ jobs:
           "$vim_bin" --version | grep -oE '[+-]eval' || true
           # -es swallows :echo, so write the probe results to a file.
           "$vim_bin" -es -N -u NONE \
-            -c 'call writefile(["colornames(before)=" .. len(v:colornames)], "probe.txt")' \
+            -c 'call writefile(["hlget=" .. exists("*hlget")], "probe.txt")' \
+            -c 'call writefile(["hlset=" .. exists("*hlset")], "probe.txt", "a")' \
             -c 'colorscheme blue' \
             -c 'call writefile(["colors_name=" .. get(g:, "colors_name", "<unset>")], "probe.txt", "a")' \
-            -c 'call writefile(["colornames(after)=" .. len(v:colornames)], "probe.txt", "a")' \
+            -c 'call writefile(["colornames=" .. len(v:colornames)], "probe.txt", "a")' \
             -c 'qall!' 2>/dev/null || true
           cat probe.txt 2>/dev/null || true
 
