@@ -2,7 +2,7 @@ vim9script
 # =============================================================================
 # autoload/mutedstl.vim
 #
-# Maintainer:  <your name> <you@example.com>
+# Maintainer:  EssenMoon <yueqrgg@gmail.com>
 # Last Change: 2026-09-23
 #
 #   LLM POWERED!   This plugin was designed and written with the help of a
@@ -27,6 +27,26 @@ vim9script
 
 # --- option lookup / 选项查询 (g:mutedstl#* only) -------------------------
 const opt_ns = 'mutedstl#'
+
+# Emit a diagnostic message, but only when diagnostics are enabled with
+# g:mutedstl_debug.  Used to make silent fallbacks observable without
+# disturbing normal statusline rendering.
+# 输出诊断信息，但仅在 g:mutedstl_debug 开启时。用于在不干扰正常状态栏渲染的
+# 前提下让“静默回退”可被观察。
+def Warn(msg: string): void
+  if get(g:, 'mutedstl_debug', 0)
+    echomsg '[mutedstl] ' .. msg
+  endif
+enddef
+
+# Announce use of a deprecated stable item.  Called from the deprecated code
+# path so users see the notice under g:mutedstl_debug while the old behaviour
+# is still honoured.  See :help mutedstl-deprecation for the full policy.
+# 宣布使用了已弃用的稳定项。在弃用代码路径中调用，使 g:mutedstl_debug 下用户
+# 能看到提示，同时仍然保留旧行为。完整政策见 :help mutedstl-deprecation。
+def Deprecated(what: string, replacement: string): void
+  Warn($'deprecated: {what} is deprecated, use {replacement} instead')
+enddef
 
 # Read an option by name (g:mutedstl#<name>), or {default} if unset.
 # 按名读取选项（g:mutedstl#<name>），未设时返回 {default}。
@@ -84,29 +104,43 @@ enddef
 # （如 ctermfg=188）。作者的 cterm 值在 256 终端下才是权威，故流程为：先读主题
 # 的 cterm；仅在某侧缺失时才换算。
 
+# --- xterm-256 palette geometry (single source of truth) --------------------
+# 标准 xterm-256 调色板的几何常量（唯一数据源，NrToHex 与 Palette 共用）。
+#
+#   0..15    system colours  (16 fixed RGB values below)
+#   16..231  6x6x6 colour cube (levels below)
+#   232..255 24-step greyscale ramp
+# 0..15 系统色；16..231 6x6x6 色立方；232..255 24 级灰阶。
+const XTERM_BASIC_RGB: list<list<number>> = [
+  [0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0],
+  [0, 0, 128], [128, 0, 128], [0, 128, 128], [192, 192, 192],
+  [128, 128, 128], [255, 0, 0], [0, 255, 0], [255, 255, 0],
+  [0, 0, 255], [255, 0, 255], [0, 255, 255], [255, 255, 255],
+]
+const XTERM_CUBE_LEVELS: list<number> = [0, 95, 135, 175, 215, 255]
+const XTERM_CUBE_START = 16        # first cube index / 色立方起始索引
+const XTERM_GREY_START = 232       # first grey index / 灰阶起始索引
+const XTERM_GREY_STEP  = 10        # ramp step / 灰阶步长
+const XTERM_GREY_BASE  = 8         # ramp start value / 灰阶起始值
+const XTERM_SIZE       = 256       # total entries / 总色数
+
 # Convert a 256-colour index to an approximate '#RRGGBB'.  Out-of-range
 # values are clamped to 0..255 so callers always get a valid colour.
 # 将 256 色号转为近似的 '#RRGGBB'。越界值被钳制到 0..255，保证调用方总能
 # 得到合法颜色。
 export def NrToHex(n: number): string
   var i = Clamp256(n)          # :def cannot assign to its arguments
-  if i < 16
-    const basic = [
-      '#000000', '#800000', '#008000', '#808000',
-      '#000080', '#800080', '#008080', '#c0c0c0',
-      '#808080', '#ff0000', '#00ff00', '#ffff00',
-      '#0000ff', '#ff00ff', '#00ffff', '#ffffff',
-    ]
-    return basic[i]
-  elseif i < 232
-    var m = i - 16
-    const levels = [0x00, 0x5f, 0x87, 0xaf, 0xd7, 0xff]  # xterm cube levels
-    var r = levels[m / 36]
-    var g = levels[(m % 36) / 6]
-    var b = levels[m % 6]
+  if i < XTERM_CUBE_START
+    var c = XTERM_BASIC_RGB[i]
+    return printf('#%02x%02x%02x', c[0], c[1], c[2])
+  elseif i < XTERM_GREY_START
+    var m = i - XTERM_CUBE_START
+    var r = XTERM_CUBE_LEVELS[m / 36]
+    var g = XTERM_CUBE_LEVELS[(m % 36) / 6]
+    var b = XTERM_CUBE_LEVELS[m % 6]
     return printf('#%02x%02x%02x', r, g, b)
   else
-    var k = (i - 232) * 10 + 8
+    var k = (i - XTERM_GREY_START) * XTERM_GREY_STEP + XTERM_GREY_BASE
     return printf('#%02x%02x%02x', k, k, k)
   endif
 enddef
@@ -118,22 +152,16 @@ def Palette(): list<list<number>>
   if !empty(palette)
     return palette
   endif
-  var p: list<list<number>> = [
-    [0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0],
-    [0, 0, 128], [128, 0, 128], [0, 128, 128], [192, 192, 192],
-    [128, 128, 128], [255, 0, 0], [0, 255, 0], [255, 255, 0],
-    [0, 0, 255], [255, 0, 255], [0, 255, 255], [255, 255, 255],
-  ]
-  const levels = [0, 95, 135, 175, 215, 255]
-  for r in levels
-    for g in levels
-      for b in levels
+  var p: list<list<number>> = copy(XTERM_BASIC_RGB)
+  for r in XTERM_CUBE_LEVELS
+    for g in XTERM_CUBE_LEVELS
+      for b in XTERM_CUBE_LEVELS
         add(p, [r, g, b])
       endfor
     endfor
   endfor
-  for i in range(24)
-    var v = 8 + i * 10
+  for i in range(XTERM_SIZE - XTERM_GREY_START)
+    var v = XTERM_GREY_BASE + i * XTERM_GREY_STEP
     add(p, [v, v, v])
   endfor
   palette = p
@@ -287,6 +315,53 @@ enddef
 # 清空全部缓存。
 var theme_cache: dict<dict<string>>
 
+# Snapshot the user-visible colour state that a probe of another colourscheme
+# may clobber: g:colors_name, 'background', and the known transparency
+# switches (which are forced off during the probe).
+# 快照探测其它配色方案时可能被破坏的用户可见颜色状态：g:colors_name、
+# 'background' 以及已知透明开关（探测时会被强制关闭）。
+def SaveColorState(): dict<any>
+  var saved_opts: dict<number> = {}
+  for var in transparent_opts
+    if exists('g:' .. var)
+      saved_opts[var] = get(g:, var, 0)
+    endif
+  endfor
+  return {
+    had_name: exists('g:colors_name'),
+    name: get(g:, 'colors_name', ''),
+    background: &background,
+    transparent: saved_opts,
+  }
+enddef
+
+# Force transparency switches off during a probe (restored afterwards).
+# 探测期间强制关闭透明开关（之后恢复）。
+def SuppressTransparent(state: dict<any>): void
+  for var in keys(state.transparent)
+    g:[var] = 0
+  endfor
+enddef
+
+# Restore the user-visible colour state captured by SaveColorState().
+# 恢复 SaveColorState() 捕获的用户可见颜色状态。
+def RestoreColorState(state: dict<any>): void
+  if state.had_name && !empty(state.name)
+    silent! noautocmd execute $'colorscheme {state.name}'
+  endif
+  # ':colorscheme {theme}' set g:colors_name; undo that when the user had none
+  # so the probe leaves no trace in their state.
+  # ':colorscheme {theme}' 设置了 g:colors_name；用户原本没有时需撤销，使探测
+  # 不在用户状态留痕。
+  if !state.had_name
+    unlet! g:colors_name
+  endif
+  &background = state.background
+  for [var, val] in items(state.transparent)
+    g:[var] = val
+  endfor
+enddef
+
 def ReadThemeNormal(theme: string): dict<string>
   # Current theme: read directly, no switching, no caching.
   # 当前主题：直接读取，不切换、不缓存。
@@ -299,16 +374,9 @@ def ReadThemeNormal(theme: string): dict<string>
     return theme_cache[key]
   endif
 
-  var orig = get(g:, 'colors_name', '')
+  var state = SaveColorState()
+  SuppressTransparent(state)
   var switched = false
-  var orig_bg_opt = &background
-  var saved: dict<number> = {}
-  for var in transparent_opts
-    if exists('g:' .. var)
-      saved[var] = get(g:, var, 0)
-      g:[var] = 0            # set global by name (Vim9 has no :let)
-    endif
-  endfor
   try
     noautocmd execute $'colorscheme {theme}'
     switched = true
@@ -316,18 +384,20 @@ def ReadThemeNormal(theme: string): dict<string>
     switched = false
   endtry
   # A failed switch leaves the PREVIOUS theme's Normal in place; reading it
-  # here would silently return the wrong colours (and cache them).  Report an
-  # empty result instead and do not cache, so callers fall back to NONE.
-  # 切换失败会残留上一个主题的 Normal；此时读取会静默返回错误颜色（并被缓存）。
-  # 故改为返回空结果且不缓存，让调用方回退到 NONE。
+  # would silently return (and cache) the wrong colours, so report an empty
+  # result instead and let callers fall back to NONE.
+  # 切换失败会残留上一个主题的 Normal；读取它会静默返回（并缓存）错误颜色，
+  # 故返回空结果，让调用方回退到 NONE。
   var normal = switched ? ReadNormal() : {}
-  if switched && !empty(orig)
-    silent! noautocmd execute $'colorscheme {orig}'
+  if switched
+    RestoreColorState(state)
+  else
+    # Even on failure, put the transparency switches back.
+    # 即使失败也要把透明开关恢复。
+    for [var, val] in items(state.transparent)
+      g:[var] = val
+    endfor
   endif
-  &background = orig_bg_opt
-  for [var, val] in items(saved)
-    g:[var] = val
-  endfor
   if switched
     theme_cache[key] = normal
   endif
@@ -340,16 +410,13 @@ export def ReloadCache(): void
   theme_cache = {}
 enddef
 
-# Resolve the source theme's fg/bg into [gui, cterm] pairs.
-# 解析来源主题的前景/背景为 [gui, cterm] 对。
+# Resolve the source theme's fg/bg (the g:mutedstl#theme option) into
+# [gui, cterm] pairs.  Thin wrapper over the public FromTheme() so the
+# theme/Normal extraction lives in exactly one place.
+# 解析来源主题（g:mutedstl#theme 选项）的前景/背景为 [gui, cterm] 对。对公共
+# 接口 FromTheme() 的薄封装，使“主题→Normal”的提取逻辑只有一处。
 def ThemePair(attr: string): list<string>
-  var theme = OptStr('theme', '')
-  var n = ReadThemeNormal(theme)
-  if attr ==# 'fg'
-    return ThemePairFrom(get(n, 'guifg', ''), get(n, 'ctermfg', ''))
-  else
-    return ThemePairFrom(get(n, 'guibg', ''), get(n, 'ctermbg', ''))
-  endif
+  return FromTheme(OptStr('theme', ''), attr)
 enddef
 
 # --- public colour API / 公共取色接口 ----------------------------------------
@@ -440,6 +507,13 @@ enddef
 # Apply one [fg, bg] chunk to a highlight group.
 # 把一个 [前景, 背景] 区块应用到某高亮组。
 export def Hi(group: string, chunk: list<any>): void
+  # Validate the chunk shape up front so a malformed argument yields a clear
+  # message instead of a low-level E684/E928 from indexing inside hlset().
+  # 预先校验 chunk 结构，使畸形参数给出清晰错误，而非 hlset() 内部索引触发的
+  # 底层 E684/E928。
+  if len(chunk) != 2 || len(chunk[0]) != 2 || len(chunk[1]) != 2
+    throw $'mutedstl: Hi(): chunk must be [[fg_gui, fg_cterm], [bg_gui, bg_cterm]], got {string(chunk)}'
+  endif
   var fg = chunk[0]
   var bg = chunk[1]
   # hlset() is the structured highlight API: no command-string building (so a
@@ -462,6 +536,13 @@ enddef
 export def Apply(groups: dict<string>): void
   var c = Colors()
   for [group, kind] in items(groups)
+    if !has_key(c, kind)
+      # A typo in {kind} (neither a chunk key nor a group literal) would
+      # silently render as ordinary; surface it under g:mutedstl_debug.
+      # {kind} 拼错（既非区块键也非字面组名）会静默按 ordinary 渲染；在
+      # g:mutedstl_debug 下提示。
+      Warn($'Apply(): unknown kind "{kind}" for group "{group}", using ordinary')
+    endif
     var chunk = get(c, kind, c.ordinary)
     Hi(group, chunk)
   endfor
@@ -510,6 +591,13 @@ enddef
 # 'bg'；{theme} 为空表示当前配色。便于在他人的状态栏/标签栏中复用本插件的主题
 # 取色。
 export def FromTheme(theme: string, attr: string): list<string>
+  # {attr} is part of the contract: anything other than 'fg'/'bg' is a caller
+  # bug, and silently returning the background would hide it.  Fail loudly.
+  # {attr} 是契约的一部分：非 'fg'/'bg' 属调用方 bug，静默返回背景色会掩盖它，
+  # 故显式报错。
+  if attr !=# 'fg' && attr !=# 'bg'
+    throw $'mutedstl: FromTheme(): attr must be ''fg'' or ''bg'', got "{attr}"'
+  endif
   var n = ReadThemeNormal(theme)
   if attr ==# 'fg'
     return ThemePairFrom(get(n, 'guifg', ''), get(n, 'ctermfg', ''))

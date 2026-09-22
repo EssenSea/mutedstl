@@ -19,6 +19,7 @@ CONTENTS ~
   8. Custom statusbar    |mutedstl-custom|
   9. Notes               |mutedstl-notes|
  10. Contributing        |mutedstl-contributing|
+ 11. Compatibility       |mutedstl-compat|
 
 ==============================================================================
 1. INTRODUCTION                            *mutedstl* *mutedstl-intro*
@@ -53,7 +54,8 @@ side.
 2. REQUIREMENTS                                 *mutedstl-requirements*
 
 - Vim 9 or later with the |+vim9script| feature.
-- |v:colornames| (Vim 8.2.4774+) and |hlget()| / |hlset()|.
+- |hlget()| and |hlset()| (both added in Vim 9.0).
+- |v:colornames| (added in Vim 8.2.4774, so always present in Vim 9).
 
 On older Vim, or without +vim9script, the plugin stays dormant.
 
@@ -134,6 +136,14 @@ All options live in the `g:mutedstl#` namespace.  Set them before calling
             Which chunk non-current windows use: 'ordinary' (default, same
             pair as active ordinary) or 'emphasis' (the inverted pair).
 
+                                                 *g:mutedstl_debug*
+g:mutedstl_debug
+            number (default 0)
+            When non-zero, mutedstl emits diagnostics with |:echomsg| for
+            recoverable problems that are otherwise silent (for example an
+            unknown {kind} passed to |mutedstl#Apply()|).  Off by default so
+            normal statusline rendering is never disturbed.
+
 An override that is present but not a usable value falls back to the theme
 colour instead of raising an error.  A numeric colour index outside 0..255 is
 clamped into range (no error).
@@ -211,6 +221,8 @@ mutedstl#Colors()
                                                            *mutedstl#Hi()*
 mutedstl#Hi({group}, {chunk})
         Apply one [fg, bg] chunk to highlight group {group} using |hlset()|.
+        Throws an error if {chunk} is not [[fg_gui, fg_cterm], [bg_gui,
+        bg_cterm]].
 
                                                            *mutedstl#Apply()*
 mutedstl#Apply({groups})
@@ -256,10 +268,11 @@ mutedstl#Chunk({content} [, {kind}])
         '%{...}' 表达式都能直接用，无需额外辅助函数。
                                                       *mutedstl#FromTheme()*
 mutedstl#FromTheme({theme}, {attr})
-        Read a colour pair from a named theme's Normal group.  {attr} is 'fg'
-        or 'bg'; {theme} may be '' for the current colourscheme.  Returns
-        [gui, cterm].  Useful for reusing mutedstl's theme-aware colour
-        reading elsewhere (statusline, tabline, ...).
+        Read a colour pair from a named theme's Normal group.  {attr} must be
+        'fg' or 'bg'; {theme} may be '' for the current colourscheme.  Returns
+        [gui, cterm].  Throws an error if {attr} is neither 'fg' nor 'bg'.
+        Useful for reusing mutedstl's theme-aware colour reading elsewhere
+        (statusline, tabline, ...).
 
                                                           *mutedstl#NrToHex()*
 mutedstl#NrToHex({n})
@@ -320,7 +333,16 @@ Example:   nmap <Leader>mr <Plug>(mutedstl-refresh)
   theme already provides one; it only approximates the nearest xterm-256
   colour (minimal RGB distance) for a missing side.
 - The current theme ('' ) is read directly and never cached; only named
-  themes are cached.
+  themes are cached.  The cache is keyed by '{theme}|{background}', so its
+  size is bounded by (number of distinct theme names probed) x 2; there is no
+  automatic eviction — use |mutedstl#ReloadCache()| to clear it.
+- |mutedstl#HexToCterm()| scans the 256-entry palette (O(256), a small
+  constant) and is only used as a fallback when a theme provides no cterm
+  value.  |mutedstl#NrToHex()| is O(1).
+- NrToHex() and HexToCterm() are not exact inverses: a cube colour whose RGB
+  equals a system colour (e.g. index 16 == #000000) maps back to the system
+  index (0).  The result is visually identical; round-tripping an index is not
+  guaranteed.
 - The statusline uses lazy %{...} items for |mode()| and 'paste' so they are
   evaluated in the context of the statusline's own window (both are
   window-local; this matters with multiple windows).
@@ -336,5 +358,61 @@ Example:   nmap <Leader>mr <Plug>(mutedstl-refresh)
   probably better left to the user.
   **功能请求会被审慎对待** —— 本插件刻意保持精简。只有当某个功能**有机会被
   合并为 Vim 内置插件**时才最可能被接受；否则更适合交给用户自行实现。
+
+==============================================================================
+11. COMPATIBILITY                                *mutedstl-compat*
+
+*Note:* This project goes beyond what Vim requires of runtime files.  Vim's
+policy (see |design-policy|) allows runtime files to change behaviour between
+releases; mutedstl instead treats its public surface as a contract and tracks
+breakages with tests.
+
+API STABILITY LEVELS ~
+
+                                                *mutedstl-stable-api*
+The following are STABLE: their names, signatures and return structure are
+kept compatible within a major version.  A change here requires a major
+version bump.
+
+    |mutedstl#Setup()|      |mutedstl#Refresh()|    |mutedstl#Redraw()|
+    |mutedstl#Reassert()|   |mutedstl#ReloadCache()|
+    |mutedstl#Colors()|     |mutedstl#Hi()|         |mutedstl#Apply()|
+    |mutedstl#ApplyDefault()|                        |mutedstl#FromTheme()|
+    |mutedstl#GroupName()|  |mutedstl#GroupMark()|
+    |mutedstl#Chunk()|      |mutedstl#String()|
+    |mutedstl#Mode()|       |mutedstl#Paste()|      |mutedstl#IsActive()|
+    |mutedstl#NrToHex()|    |mutedstl#HexToCterm()| |mutedstl#NameToHex()|
+
+    The shape returned by |mutedstl#Colors()| (field names, [gui, cterm]
+    pair layout, and the Boolean type of 'invert'/'is_none') is frozen.
+
+                                                *mutedstl-options-stable*
+The option names under `g:mutedstl#` (and `g:mutedstl_debug`,
+`g:mutedstl_auto_setup`) are STABLE.  Existing options keep their meaning;
+a new option is added with a documented default and never changes another
+option's meaning.
+
+DEPRECATION POLICY ~
+
+                                                *mutedstl-deprecation*
+When a stable item must change or be removed:
+
+  1. It is first marked DEPRECATED (in this help file and in the source).
+  2. The old behaviour is KEPT and, if it is a callable, a warning is
+     emitted under |g:mutedstl_debug| when it is used.
+  3. It is only removed in the next MAJOR version.
+
+There are currently no deprecated items.
+
+SUPPORT MATRIX ~
+
+                                                *mutedstl-support*
+    Vim 9.0 and later are supported.  CI runs the test suite on the
+    distribution Vim and the newest official release, so regressions on
+    either end surface before a release.
+
+    On Vim versions or builds without the features listed in
+    |mutedstl-requirements| the plugin stays dormant; it never errors at
+    startup.
 
  vim:tw=78:ts=8:noet:ft=help:norl:

@@ -1,0 +1,13 @@
+# Editor swap/backup files
+*.swp
+*.swo
+*~
+.*.sw?
+
+# Build/test artefacts
+*.out
+*.log
+
+# Local scratch / editor dirs
+.idea/
+.vscode/

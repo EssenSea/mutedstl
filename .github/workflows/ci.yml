@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Vim ${{ matrix.vim }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The distro package plus the newest official AppImage: two practical
+        # points.  Building every Vim point release from source is overkill.
+        vim: [distro, latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vim (distro)
+        if: matrix.vim == 'distro'
+        run: |
+          sudo apt-get update
+          # vim-nox is a full build (vim9script, +eval, complete runtime)
+          # rather than the slim 'vim' metapackage.
+          sudo apt-get install -y vim-nox || sudo apt-get install -y vim
+          vim --version | head -1
+
+      - name: Install Vim (latest official AppImage)
+        if: matrix.vim == 'latest'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/vim/vim-appimage/releases/latest"
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
+               -H "Accept: application/vnd.github+json" "$api" -o release.json
+          tag=$(python3 -c 'import json;print(json.load(open("release.json"))["tag_name"])')
+          url=$(python3 -c 'import json;d=json.load(open("release.json"));print(next(a["browser_download_url"] for a in d["assets"] if a["name"].startswith("Vim-") and a["name"].endswith(".AppImage") and "x86_64" in a["name"]))')
+          echo "Resolved Vim $tag -> $url"
+          test -n "$url"
+          curl -fLo vim.appimage "$url"
+          chmod +x vim.appimage
+          # Extract instead of running in place: no FUSE needed on the runner.
+          ./vim.appimage --appimage-extract >/dev/null
+          echo "VIM=$(pwd)/squashfs-root/AppRun" >> "$GITHUB_ENV"
+
+      - name: Show Vim features
+        run: |
+          vim_bin="${VIM:-vim}"
+          "$vim_bin" --version | head -1
+          "$vim_bin" --version | grep -oE '[+-]vim9script' || true
+          "$vim_bin" --version | grep -oE '[+-]eval' || true
+          # -es swallows :echo, so write the probe results to a file.
+          "$vim_bin" -es -N -u NONE \
+            -c 'call writefile(["colornames(before)=" .. len(v:colornames)], "probe.txt")' \
+            -c 'colorscheme blue' \
+            -c 'call writefile(["colors_name=" .. get(g:, "colors_name", "<unset>")], "probe.txt", "a")' \
+            -c 'call writefile(["colornames(after)=" .. len(v:colornames)], "probe.txt", "a")' \
+            -c 'qall!' 2>/dev/null || true
+          cat probe.txt 2>/dev/null || true
+
+      - name: Run test suite
+        run: VIM="${VIM:-vim}" test/run.sh
+
+  lint:
+    name: Static checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y vim shellcheck
+
+      - name: shellcheck
+        run: shellcheck test/run.sh
+
+      - name: help tags are up to date
+        run: make docs-check

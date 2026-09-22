@@ -1,5 +1,8 @@
 # mutedstl
 
+[![CI](https://github.com/EssenSea/mutedstl/actions/workflows/ci.yml/badge.svg)](https://github.com/EssenSea/mutedstl/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 > **LLM POWERED!** — This plugin was designed and written with the help of a
 > large language model. **LLM POWERED！**
 > 本插件由大语言模型协助设计与编写。
@@ -104,6 +107,7 @@ All in the `g:mutedstl#` namespace; see `:help mutedstl-options`.
 | `g:mutedstl#bg`     | —    | Background override. / 背景覆盖 |
 | `g:mutedstl#prefix` | `'Mutedstl'` | Group-name prefix. / 组名前缀 |
 | `g:mutedstl#inactive` | `'ordinary'` | Chunk for non-current windows (`ordinary`/`emphasis`). / 非当前窗口区块 |
+| `g:mutedstl_debug` | `0` | Emit diagnostics for recoverable problems via `:echomsg`. / 对可恢复问题输出诊断 |
 
 Override values: `'#RRGGBB'`, a colour name, a 256-colour index, or `'NONE'`.
 A numeric index outside 0..255 is clamped into range (no error).
@@ -182,15 +186,21 @@ nmap <Leader>mL <Plug>(mutedstl-reload)    " drop cache + re-apply + redraw / �
 :help mutedstl
 ```
 
-## Tests / 测试
+## Development / 开发
+
+A `Makefile` provides the usual entry points (run `make` for help):
 
 ```sh
-test/run.sh
-# or
-vim -N -u NONE -i NONE -es -S test/mutedstl.vim
+make test     # headless regression suite (test/run.sh)
+make lint     # shellcheck + doc/tags freshness
+make docs     # regenerate doc/tags from doc/mutedstl.txt
+make check    # test + lint (what CI runs)
 ```
 
 Expected / 预期：`mutedstl tests: NN/NN passed` + `ALL PASS`.
+
+CI runs the suite on a distribution Vim and the latest release, plus the
+static checks above; see `.github/workflows/ci.yml`.
 
 ## Contributing / 贡献
 
@@ -202,6 +212,11 @@ Expected / 预期：`mutedstl tests: NN/NN passed` + `ALL PASS`.
   left to the user.
   **功能请求会被审慎对待** —— 本插件刻意保持精简。只有当某个功能
   **有机会被合并为 Vim 内置插件**时才最可能被接受；否则更适合交给用户自行实现。
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for style and workflow, and
+[CHANGELOG.md](CHANGELOG.md) for the version history.  This project follows the
+[Contributor Covenant](CODE_OF_CONDUCT.md); to report a vulnerability see
+[SECURITY.md](SECURITY.md).
 
 ## License / 许可
 
