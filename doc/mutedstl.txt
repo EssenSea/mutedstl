@@ -53,8 +53,7 @@ side.
 2. REQUIREMENTS                                 *mutedstl-requirements*
 
 - Vim 9 or later with the |+vim9script| feature.
-- |hlget()| and |hlset()| (both added in Vim 9.0).
-- |v:colornames| (added in Vim 8.2.4774, so always present in Vim 9).
+- |v:colornames| (Vim 8.2.4774+) and |hlget()| / |hlset()|.
 
 On older Vim, or without +vim9script, the plugin stays dormant.
 

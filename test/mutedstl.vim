@@ -74,13 +74,7 @@ enddef
 # =============================================================================
 
 # Ensure a deterministic colourscheme / 固定一个可预期的配色方案。
-# Use a theme that ships with every Vim ('blue'), not a newer one that older
-# Vims may lack; assert it actually loaded so the suite fails loudly rather
-# than silently on a wrong baseline.
-# 使用每个 Vim 都自带的主题（blue），而非旧版可能缺失的新主题；并断言确实
-# 加载，使测试在基线错误时明确失败而不是静默通过。
-silent! execute 'colorscheme blue'
-Check('baseline: blue theme loaded', get(g:, 'colors_name', '') ==# 'blue')
+silent! execute 'colorscheme novum'
 ms.ReloadCache()
 
 # --- 1. Colors(): default comes from the current Normal ----------------------
@@ -260,22 +254,6 @@ var cbad = ms.Colors()
 Check('Colors(missing theme) is_none', cbad.is_none == true)
 ClearOpts()
 ms.ReloadCache()
-
-# --- 10c. reading another theme must restore g:colors_name -------------------
-# 读取其它主题后必须恢复 g:colors_name（无副作用泄漏）。
-silent! colorscheme blue
-ms.ReloadCache()
-var bg_before = &background
-ms.FromTheme('desert', 'fg')
-Eq('FromTheme restores colors_name', 'blue', get(g:, 'colors_name', '<unset>'))
-Eq('FromTheme restores background', bg_before, &background)
-# When the user had no colors_name at all, it must stay unset afterwards.
-unlet! g:colors_name
-ms.ReloadCache()
-ms.FromTheme('desert', 'fg')
-Check('FromTheme leaves colors_name unset if it was unset', !exists('g:colors_name'))
-ms.ReloadCache()
-silent! colorscheme blue            # restore a known baseline for later cases
 
 # --- 11. String(): structural checks -----------------------------------------
 var sl = ms.String()

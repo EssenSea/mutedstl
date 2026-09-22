@@ -3,7 +3,7 @@ vim9script
 # plugin/mutedstl.vim  — the only auto-sourced file of this plugin
 # plugin/mutedstl.vim  — 本插件唯一自动加载的文件
 #
-# Maintainer:  EssenMoon <yueqrgg@gmail.com>
+# Maintainer:  <your name> <you@example.com>
 # Last Change: 2026-09-23
 #
 #   LLM POWERED!  This plugin was designed and written with the help of a

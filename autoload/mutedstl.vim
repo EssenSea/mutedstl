@@ -2,7 +2,7 @@ vim9script
 # =============================================================================
 # autoload/mutedstl.vim
 #
-# Maintainer:  EssenMoon <yueqrgg@gmail.com>
+# Maintainer:  <your name> <you@example.com>
 # Last Change: 2026-09-23
 #
 #   LLM POWERED!   This plugin was designed and written with the help of a
@@ -299,7 +299,6 @@ def ReadThemeNormal(theme: string): dict<string>
     return theme_cache[key]
   endif
 
-  var had_name = exists('g:colors_name')
   var orig = get(g:, 'colors_name', '')
   var switched = false
   var orig_bg_opt = &background
@@ -322,18 +321,8 @@ def ReadThemeNormal(theme: string): dict<string>
   # 切换失败会残留上一个主题的 Normal；此时读取会静默返回错误颜色（并被缓存）。
   # 故改为返回空结果且不缓存，让调用方回退到 NONE。
   var normal = switched ? ReadNormal() : {}
-  if switched
-    if had_name && !empty(orig)
-      silent! noautocmd execute $'colorscheme {orig}'
-    endif
-    # Restore g:colors_name itself too: ':colorscheme {theme}' set it.  When
-    # the user had no colours_name at all, remove it again so the switch leaves
-    # no trace in the user's state.
-    # 同样要恢复 g:colors_name 本身：':colorscheme {theme}' 设置了它。若用户
-    # 原本就没有 colors_name，则再次删除，使切换不在用户状态里留痕。
-    if !had_name
-      unlet! g:colors_name
-    endif
+  if switched && !empty(orig)
+    silent! noautocmd execute $'colorscheme {orig}'
   endif
   &background = orig_bg_opt
   for [var, val] in items(saved)
