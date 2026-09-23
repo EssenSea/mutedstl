@@ -1,4 +1,6 @@
-*mutedstl.txt*   A muted, self-contained statusline for Vim   For Vim version 9.1 and later.  Last change: 2026 Sep 23
+*mutedstl.txt*   A muted statusline for Vim version 9.1 and later.
+                                                    Last change: 2026 Sep 23
+
 
                        LLM POWERED!   LLM POWERED!
      This plugin was designed and written with the help of a large
