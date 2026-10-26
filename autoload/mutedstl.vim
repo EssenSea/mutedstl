@@ -372,20 +372,19 @@ enddef
 # Restore the user-visible colour state captured by SaveColorState().
 # 恢复 SaveColorState() 捕获的用户可见颜色状态。
 def RestoreColorState(state: dict<any>): void
-  if state.had_name && !empty(state.name)
-    silent! noautocmd execute $'colorscheme {state.name}'
-  endif
-  # ':colorscheme {theme}' set g:colors_name; undo that when the user had none
-  # so the probe leaves no trace in their state.
-  # ':colorscheme {theme}' 设置了 g:colors_name；用户原本没有时需撤销，使探测
-  # 不在用户状态留痕。
-  if !state.had_name
-    unlet! g:colors_name
-  endif
+  # Restore 'background' and the transparency switches BEFORE reloading the
+  # colourscheme: the theme bakes its configuration at source time, so a
+  # reload while the switches are still suppressed leaves it opaque.
   &background = state.background
   for [var, val] in items(state.transparent)
     g:[var] = val
   endfor
+  if state.had_name && !empty(state.name)
+    silent! noautocmd execute $'colorscheme {state.name}'
+  endif
+  if !state.had_name
+    unlet! g:colors_name
+  endif
 enddef
 
 def ReadThemeGroup(theme: string, group: string): dict<string>
