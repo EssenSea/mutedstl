@@ -797,7 +797,7 @@ export def String(): string
   # default -- build your own 'statusline' from Chunk()/GroupMark() instead.
   # 默认布局：模式用 emphasis，其余用 ordinary。它只是默认值——可改用
   # Chunk()/GroupMark() 自建 'statusline'。
-  var s = Chunk('%{mutedstl#Mode()}%{mutedstl#Paste()} ', 'emphasis')
+  var s = Chunk(' %{mutedstl#Mode()}%{mutedstl#Paste()} ', 'emphasis')
   # One ordinary chunk (a single group marker) for everything after the mode.
   # 模式之后的全部内容共用一个 ordinary 区块（单个组标记，避免重复）。
   s ..= Chunk('%( %<%t %) %m%r%= %y | Buf:%n | [%l:%c] %P of %LL ', 'ordinary')
